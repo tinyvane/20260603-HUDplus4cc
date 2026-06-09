@@ -44,3 +44,11 @@ node_modules/
 venv/
 dist/
 build/
+
+# Secrets & credentials (added by claude-hud ACPEC)
+*secret*
+*credentials*.json
+*.credentials
+.aws/
+.ssh/
+*.log
