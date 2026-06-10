@@ -42,8 +42,10 @@ __pycache__/
 node_modules/
 .venv/
 venv/
-dist/
-build/
+# Anchored to repo root: claude-hud/dist is committed so the HUD works
+# after a plain pull on other machines (no rebuild needed).
+/dist/
+/build/
 
 # Secrets & credentials (added by claude-hud ACPEC)
 *secret*

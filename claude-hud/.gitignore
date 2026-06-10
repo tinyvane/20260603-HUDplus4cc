@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+# dist/ IS committed here: this directory was flattened from the claude-hud
+# fork into a plain local project, and committing the build output lets the
+# statusline run after a plain pull on any machine without npm install/build.
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.fifo
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment/secrets (safety)
+.env
+.env.*
+.claude/settings.json
+.claude/*.local.json
+*.pem
+*.key
+secrets/
+credentials/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+
+# Lock files (keep package-lock.json for npm)
+yarn.lock
+bun.lock

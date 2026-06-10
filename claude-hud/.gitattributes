@@ -1,0 +1,8 @@
+# Test fixtures and snapshots are written with LF and compared byte-exactly.
+# Without this, core.autocrlf=true on Windows rewrites them to CRLF on checkout,
+# breaking snapshot comparisons. Pin them to LF on every platform.
+tests/fixtures/** text eol=lf
+
+# tsc emits LF; pin the committed build output so core.autocrlf=true on
+# Windows doesn't mark every dist file modified after a rebuild.
+dist/** text eol=lf
