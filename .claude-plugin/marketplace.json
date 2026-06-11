@@ -1,0 +1,20 @@
+{
+  "name": "hudplus",
+  "owner": {
+    "name": "tinyvane",
+    "url": "https://github.com/tinyvane"
+  },
+  "metadata": {
+    "description": "HUD+ — enhanced fork of Claude HUD with cross-machine session sync tools: chats counter with loss sentinel, chat backup/recover, ACPEC auto commit+push, and submodule push reminders",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claude-hud",
+      "source": "./claude-hud",
+      "description": "Real-time statusline showing context usage, git status, active tools, agents, and todos — plus opt-in session sync tools (chats line, backup/recover, ACPEC auto-sync).",
+      "category": "monitoring",
+      "tags": ["hud", "statusline", "monitoring", "context", "sync", "backup", "acpec"]
+    }
+  ]
+}
