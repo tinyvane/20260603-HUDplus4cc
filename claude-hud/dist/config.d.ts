@@ -52,6 +52,7 @@ export interface HudConfig {
         branchOverflow: GitBranchOverflowMode;
         pushWarningThreshold: number;
         pushCriticalThreshold: number;
+        commandTimeoutMs: number;
     };
     display: {
         showModel: boolean;

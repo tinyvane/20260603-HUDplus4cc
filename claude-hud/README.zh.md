@@ -165,6 +165,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `gitStatus.pushCriticalThreshold` | number | 0 | 当未推送提交数达到此值时，用严重色显示 ahead 计数（`0` 表示禁用） |
 | `gitStatus.showFileStats` | boolean | false | 显示文件变更数量 `!M +A ✘D ?U` |
 | `gitStatus.branchOverflow` | `truncate` \| `wrap` | `truncate` | 保持当前截断行为，或在可能时让 git 块以自己的换行边界单独换到下一行 |
+| `gitStatus.commandTimeoutMs` | number | 1000 | 每个 git 命令的超时（毫秒，限制在 250–30000）。在 git 启动很慢的机器上（如 Windows 杀毒软件实时扫描导致 git 信息随机消失）可调高 |
 | `display.showModel` | boolean | true | 显示模型名称 `[Opus]` |
 | `display.showAddedDirs` | boolean | true | 显示来自 `/add-dir` 的额外工作区目录（如 `+sparkle +lib-foo`）；空数组不显示任何内容。在两种布局中最多渲染 5 个目录（溢出显示为 `+N more`），基名截断为 24 个字符并加 `…` |
 | `display.addedDirsLayout` | `inline` \| `line` | `inline` | `inline` 将目录放在项目名称旁边，每个目录带 `+name` 前缀；`line` 在单独的 `Added dirs: name1, name2` 行渲染（无 `+` 前缀，逗号分隔） |

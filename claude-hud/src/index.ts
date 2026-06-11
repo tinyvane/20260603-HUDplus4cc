@@ -91,7 +91,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const config = await deps.loadConfig();
     setLanguage(config.language);
     const gitStatus = config.gitStatus.enabled
-      ? await deps.getGitStatus(stdin.cwd)
+      ? await deps.getGitStatus(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
       : null;
 
     let usageData: RenderContext["usageData"] = null;
@@ -135,7 +135,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       : null;
 
     const submoduleConfig = config.display.showSubmodulePush
-      ? await deps.getSubmoduleConfig(stdin.cwd)
+      ? await deps.getSubmoduleConfig(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
       : null;
 
     const ctx: RenderContext = {

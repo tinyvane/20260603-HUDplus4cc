@@ -22,7 +22,18 @@ function restoreEnvVar(name, value) {
 }
 
 test('loadConfig returns valid config structure', async () => {
-  const config = await loadConfig();
+  // Isolate from any real user config on this machine — point CLAUDE_CONFIG_DIR
+  // at an empty temp dir so loadConfig() exercises pure defaults.
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const emptyConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-config-defaults-'));
+  let config;
+  try {
+    process.env.CLAUDE_CONFIG_DIR = emptyConfigDir;
+    config = await loadConfig();
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(emptyConfigDir, { recursive: true, force: true });
+  }
 
   // pathLevels must be 1, 2, or 3
   assert.ok([1, 2, 3].includes(config.pathLevels), 'pathLevels should be 1, 2, or 3');
@@ -194,6 +205,23 @@ test('mergeConfig preserves explicit git push thresholds', () => {
   });
   assert.equal(config.gitStatus.pushWarningThreshold, 15);
   assert.equal(config.gitStatus.pushCriticalThreshold, 30);
+});
+
+test('mergeConfig defaults gitStatus.commandTimeoutMs to 1000', () => {
+  const config = mergeConfig({});
+  assert.equal(config.gitStatus.commandTimeoutMs, 1000);
+});
+
+test('mergeConfig preserves and clamps gitStatus.commandTimeoutMs', () => {
+  assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: 5000 } }).gitStatus.commandTimeoutMs, 5000);
+  assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: 100 } }).gitStatus.commandTimeoutMs, 250);
+  assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: 99999999 } }).gitStatus.commandTimeoutMs, 30000);
+});
+
+test('mergeConfig falls back to default for invalid gitStatus.commandTimeoutMs', () => {
+  assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: 'fast' } }).gitStatus.commandTimeoutMs, 1000);
+  assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: -1 } }).gitStatus.commandTimeoutMs, 1000);
+  assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: NaN } }).gitStatus.commandTimeoutMs, 1000);
 });
 
 test('mergeConfig defaults context thresholds to 70/85', () => {

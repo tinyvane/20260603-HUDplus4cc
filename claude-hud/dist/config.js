@@ -37,6 +37,7 @@ export const DEFAULT_CONFIG = {
         branchOverflow: 'truncate',
         pushWarningThreshold: 0,
         pushCriticalThreshold: 0,
+        commandTimeoutMs: 1000,
     },
     display: {
         showModel: true,
@@ -290,6 +291,12 @@ function validateCountThreshold(value) {
     }
     return Math.max(0, Math.floor(value));
 }
+function validateCommandTimeout(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        return DEFAULT_CONFIG.gitStatus.commandTimeoutMs;
+    }
+    return Math.min(30000, Math.max(250, Math.floor(value)));
+}
 function validateDurationSeconds(value, fallback) {
     if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
         return fallback;
@@ -351,6 +358,7 @@ export function mergeConfig(userConfig) {
             : DEFAULT_CONFIG.gitStatus.branchOverflow,
         pushWarningThreshold: validateCountThreshold(migrated.gitStatus?.pushWarningThreshold),
         pushCriticalThreshold: validateCountThreshold(migrated.gitStatus?.pushCriticalThreshold),
+        commandTimeoutMs: validateCommandTimeout(migrated.gitStatus?.commandTimeoutMs),
     };
     const display = {
         showModel: typeof migrated.display?.showModel === 'boolean'

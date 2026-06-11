@@ -1,6 +1,16 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
+const DEFAULT_GIT_TIMEOUT_MS = 1000;
+const MIN_GIT_TIMEOUT_MS = 250;
+const MAX_GIT_TIMEOUT_MS = 30000;
+function resolveTimeout(options) {
+    const value = options?.timeoutMs;
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        return DEFAULT_GIT_TIMEOUT_MS;
+    }
+    return Math.min(MAX_GIT_TIMEOUT_MS, Math.max(MIN_GIT_TIMEOUT_MS, Math.floor(value)));
+}
 /**
  * Detect nested git repos committed as gitlinks and whether
  * `push.recurseSubmodules` is configured so that pushing the parent also
@@ -10,11 +20,12 @@ const execFileAsync = promisify(execFile);
  * Returns `count: 0` when the repo has no gitlinks (nothing to warn about),
  * or null when `cwd` is missing / not a git repo.
  */
-export async function getSubmoduleConfig(cwd) {
+export async function getSubmoduleConfig(cwd, options) {
     if (!cwd)
         return null;
+    const timeout = resolveTimeout(options);
     try {
-        const { stdout } = await execFileAsync('git', ['ls-files', '-s'], { cwd, timeout: 1500, encoding: 'utf8', windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
+        const { stdout } = await execFileAsync('git', ['ls-files', '-s'], { cwd, timeout: Math.round(timeout * 1.5), encoding: 'utf8', windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
         let count = 0;
         for (const line of stdout.split('\n')) {
             // Gitlink entries (submodules / nested repos) use mode 160000.
@@ -26,7 +37,7 @@ export async function getSubmoduleConfig(cwd) {
         }
         let recurseValue = null;
         try {
-            const { stdout: cfgOut } = await execFileAsync('git', ['config', '--get', 'push.recurseSubmodules'], { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true });
+            const { stdout: cfgOut } = await execFileAsync('git', ['config', '--get', 'push.recurseSubmodules'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
             recurseValue = cfgOut.trim() || null;
         }
         catch {
@@ -38,23 +49,24 @@ export async function getSubmoduleConfig(cwd) {
         return null;
     }
 }
-export async function getGitBranch(cwd) {
+export async function getGitBranch(cwd, options) {
     if (!cwd)
         return null;
     try {
-        const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true });
+        const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout: resolveTimeout(options), encoding: 'utf8', windowsHide: true });
         return stdout.trim() || null;
     }
     catch {
         return null;
     }
 }
-export async function getGitStatus(cwd) {
+export async function getGitStatus(cwd, options) {
     if (!cwd)
         return null;
+    const timeout = resolveTimeout(options);
     try {
         // Get branch name
-        const { stdout: branchOut } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true });
+        const { stdout: branchOut } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
         const branch = branchOut.trim();
         if (!branch)
             return null;
@@ -63,7 +75,7 @@ export async function getGitStatus(cwd) {
         let fileStats;
         let lineDiff;
         try {
-            const { stdout: statusOut } = await execFileAsync('git', ['-c', 'core.quotePath=false', '--no-optional-locks', 'status', '--porcelain'], { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true });
+            const { stdout: statusOut } = await execFileAsync('git', ['-c', 'core.quotePath=false', '--no-optional-locks', 'status', '--porcelain'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
             const trimmed = statusOut.trim();
             isDirty = trimmed.length > 0;
             if (isDirty) {
@@ -76,7 +88,7 @@ export async function getGitStatus(cwd) {
         // Get per-file and total line diffs
         if (isDirty) {
             try {
-                const { stdout: numstatOut } = await execFileAsync('git', ['-c', 'core.quotePath=false', 'diff', '--numstat', 'HEAD'], { cwd, timeout: 2000, encoding: 'utf8', windowsHide: true });
+                const { stdout: numstatOut } = await execFileAsync('git', ['-c', 'core.quotePath=false', 'diff', '--numstat', 'HEAD'], { cwd, timeout: timeout * 2, encoding: 'utf8', windowsHide: true });
                 const trackedPaths = new Set(fileStats?.trackedFiles.map((file) => file.fullPath) ?? []);
                 const { totalDiff, perFileDiff } = parseNumstat(numstatOut, trackedPaths);
                 lineDiff = totalDiff;
@@ -92,7 +104,7 @@ export async function getGitStatus(cwd) {
         let ahead = 0;
         let behind = 0;
         try {
-            const { stdout: revOut } = await execFileAsync('git', ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true });
+            const { stdout: revOut } = await execFileAsync('git', ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
             const parts = revOut.trim().split(/\s+/);
             if (parts.length === 2) {
                 behind = parseInt(parts[0], 10) || 0;
@@ -105,7 +117,7 @@ export async function getGitStatus(cwd) {
         // Build GitHub branch URL from remote
         let branchUrl;
         try {
-            const { stdout: remoteOut } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true });
+            const { stdout: remoteOut } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
             const remote = remoteOut.trim();
             const httpsBase = remote
                 .replace(/^git@github\.com:/, 'https://github.com/')

@@ -60,7 +60,7 @@ export async function main(overrides = {}) {
         const config = await deps.loadConfig();
         setLanguage(config.language);
         const gitStatus = config.gitStatus.enabled
-            ? await deps.getGitStatus(stdin.cwd)
+            ? await deps.getGitStatus(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
             : null;
         let usageData = null;
         const shouldReadUsage = config.display.showUsage !== false;
@@ -93,7 +93,7 @@ export async function main(overrides = {}) {
             ? deps.getChatStats({ transcriptPath, cwd: stdin.cwd })
             : null;
         const submoduleConfig = config.display.showSubmodulePush
-            ? await deps.getSubmoduleConfig(stdin.cwd)
+            ? await deps.getSubmoduleConfig(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
             : null;
         const ctx = {
             stdin,

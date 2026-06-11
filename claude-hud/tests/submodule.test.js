@@ -8,6 +8,9 @@ import { getSubmoduleConfig } from '../dist/git.js';
 import { renderSubmoduleLine } from '../dist/render/lines/submodule.js';
 import { DEFAULT_CONFIG } from '../dist/config.js';
 
+// Generous timeout so slow-git machines (antivirus-scanned spawns) don't flake.
+const GIT_OPTS = { timeoutMs: 15000 };
+
 function stripAnsi(text) {
   // eslint-disable-next-line no-control-regex
   return text.replace(/\x1b\[[0-9;]*m/g, '');
@@ -86,7 +89,7 @@ test('getSubmoduleConfig reports count 0 for a plain repo', async () => {
     await writeFile(path.join(dir, 'a.txt'), 'hi\n');
     git(dir, 'add', 'a.txt');
     git(dir, 'commit', '-m', 'init');
-    const res = await getSubmoduleConfig(dir);
+    const res = await getSubmoduleConfig(dir, GIT_OPTS);
     assert.deepEqual(res, { count: 0, recurseValue: null, recurseOnDemand: false });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -108,13 +111,13 @@ test('getSubmoduleConfig detects a bare gitlink and reads push.recurseSubmodules
     git(parent, 'update-index', '--add', '--cacheinfo', `160000,${sha},nested`);
 
     // Unset → warn.
-    const warn = await getSubmoduleConfig(parent);
+    const warn = await getSubmoduleConfig(parent, GIT_OPTS);
     assert.equal(warn.count >= 1, true);
     assert.equal(warn.recurseOnDemand, false);
 
     // Set on-demand → confirmed.
     git(parent, 'config', 'push.recurseSubmodules', 'on-demand');
-    const ok = await getSubmoduleConfig(parent);
+    const ok = await getSubmoduleConfig(parent, GIT_OPTS);
     assert.equal(ok.recurseValue, 'on-demand');
     assert.equal(ok.recurseOnDemand, true);
   } finally {

@@ -1,10 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { getGitBranch, getGitStatus } from '../dist/git.js';
+
+// These tests exercise parsing logic, not statusline latency budgets. On
+// machines where spawning git is slow (e.g. antivirus scanning on Windows)
+// the production 1s default would randomly kill commands and flake the suite.
+const GIT_OPTS = { timeoutMs: 15000 };
 
 test('getGitBranch returns null when cwd is undefined', async () => {
   const result = await getGitBranch(undefined);
@@ -14,7 +19,7 @@ test('getGitBranch returns null when cwd is undefined', async () => {
 test('getGitBranch returns null for non-git directory', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-nogit-'));
   try {
-    const result = await getGitBranch(dir);
+    const result = await getGitBranch(dir, GIT_OPTS);
     assert.equal(result, null);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -29,7 +34,7 @@ test('getGitBranch returns branch name for git directory', async () => {
     execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitBranch(dir);
+    const result = await getGitBranch(dir, GIT_OPTS);
     assert.ok(result === 'main' || result === 'master', `Expected main or master, got ${result}`);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -45,7 +50,7 @@ test('getGitBranch returns custom branch name', async () => {
     execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitBranch(dir);
+    const result = await getGitBranch(dir, GIT_OPTS);
     assert.equal(result, 'feature/test-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -61,7 +66,7 @@ test('getGitStatus returns null when cwd is undefined', async () => {
 test('getGitStatus returns null for non-git directory', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-nogit-'));
   try {
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result, null);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -76,7 +81,7 @@ test('getGitStatus returns clean state for clean repo', async () => {
     execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.ok(result?.branch === 'main' || result?.branch === 'master');
     assert.equal(result?.isDirty, false);
     assert.equal(result?.ahead, 0);
@@ -97,7 +102,7 @@ test('getGitStatus detects dirty state', async () => {
     // Create uncommitted file
     await writeFile(path.join(dir, 'dirty.txt'), 'uncommitted change');
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.isDirty, true);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -113,7 +118,7 @@ test('getGitStatus returns undefined fileStats for clean repo', async () => {
     execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.fileStats, undefined);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -132,7 +137,7 @@ test('getGitStatus counts untracked files', async () => {
     await writeFile(path.join(dir, 'untracked1.txt'), 'content');
     await writeFile(path.join(dir, 'untracked2.txt'), 'content');
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.fileStats?.untracked, 2);
     assert.equal(result?.fileStats?.modified, 0);
     assert.equal(result?.fileStats?.added, 0);
@@ -157,7 +162,7 @@ test('getGitStatus counts modified files', async () => {
     // Modify the file
     await writeFile(path.join(dir, 'file.txt'), 'modified');
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.fileStats?.modified, 1);
     assert.equal(result?.fileStats?.untracked, 0);
   } finally {
@@ -183,7 +188,7 @@ test('getGitStatus returns UTF-8 filenames when core.quotePath is true', async (
     assert.match(quotedStatus, /\\[0-7]{3}/, `expected git to octal-escape path, got ${quotedStatus}`);
     assert.equal(quotedStatus.includes(fileName), false);
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     const tracked = result?.fileStats?.trackedFiles ?? [];
 
     assert.equal(result?.fileStats?.modified, 1);
@@ -208,7 +213,7 @@ test('getGitStatus counts staged added files', async () => {
     await writeFile(path.join(dir, 'newfile.txt'), 'content');
     execFileSync('git', ['add', 'newfile.txt'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.fileStats?.added, 1);
     assert.equal(result?.fileStats?.untracked, 0);
   } finally {
@@ -229,7 +234,7 @@ test('getGitStatus counts deleted files', async () => {
     execFileSync('git', ['commit', '-m', 'add file'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['rm', 'todelete.txt'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.fileStats?.deleted, 1);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -249,7 +254,7 @@ test('getGitStatus includes total and per-file line diffs for modified files', a
 
     await writeFile(path.join(dir, 'file.txt'), 'one\nthree\nfour\n');
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.deepEqual(result?.lineDiff, { added: 1, deleted: 1 });
     assert.deepEqual(result?.fileStats?.trackedFiles[0]?.lineDiff, { added: 1, deleted: 1 });
   } finally {
@@ -273,7 +278,7 @@ test('getGitStatus attaches line diffs to renamed files', async () => {
     await writeFile(path.join(dir, 'new_name.txt'), 'one\ntwo\nthree\nfour\nfive\n');
     execFileSync('git', ['add', 'new_name.txt'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     const tracked = result?.fileStats?.trackedFiles ?? [];
     const renamed = tracked.find((f) => f.fullPath?.endsWith('new_name.txt'));
 
@@ -305,7 +310,7 @@ test('getGitStatus attaches line diffs to renamed files with shared directory pr
     execFileSync('git', ['add', '.gitkeep'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
 
-    execFileSync('mkdir', ['-p', pkgDir]);
+    await mkdir(pkgDir, { recursive: true });
     await writeFile(path.join(pkgDir, 'old.ts'), 'export const a = 1;\n');
     execFileSync('git', ['add', 'pkg/old.ts'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '-m', 'add old.ts'], { cwd: dir, stdio: 'ignore' });
@@ -314,7 +319,7 @@ test('getGitStatus attaches line diffs to renamed files with shared directory pr
     await writeFile(path.join(pkgDir, 'new.ts'), 'export const a = 1;\nexport const b = 2;\n');
     execFileSync('git', ['add', 'pkg/new.ts'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     const tracked = result?.fileStats?.trackedFiles ?? [];
     const renamed = tracked.find((f) => f.fullPath?.endsWith('new.ts'));
 
@@ -350,7 +355,7 @@ test('getGitStatus keeps line diffs for literal filenames containing arrow text'
 
     await writeFile(path.join(dir, fileName), 'one\ntwo\nthree\n');
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     const tracked = result?.fileStats?.trackedFiles ?? [];
     const modified = tracked.find((f) => f.fullPath === fileName);
 
@@ -375,7 +380,7 @@ test('getGitStatus builds branchUrl from HTTPS origin remotes', async () => {
     execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature%2Ftest-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -392,7 +397,7 @@ test('getGitStatus builds branchUrl from SSH origin remotes', async () => {
     execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature%2Ftest-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -409,7 +414,7 @@ test('getGitStatus does not build branchUrl for non-GitHub HTTPS remotes', async
     execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['remote', 'add', 'origin', 'https://gitlab.com/example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.branchUrl, undefined);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -426,7 +431,7 @@ test('getGitStatus does not build branchUrl for non-GitHub SSH remotes', async (
     execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['remote', 'add', 'origin', 'git@gitlab.com:example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
-    const result = await getGitStatus(dir);
+    const result = await getGitStatus(dir, GIT_OPTS);
     assert.equal(result?.branchUrl, undefined);
   } finally {
     await rm(dir, { recursive: true, force: true });

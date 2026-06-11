@@ -11,6 +11,11 @@ function emitCmd(expr) {
   return `node -e "process.stdout.write(${expr})"`;
 }
 
+// Spawning a node child can exceed the production 3s default on machines with
+// slow process startup (antivirus scanning); these tests verify output
+// handling, not latency, so give them a generous timeout.
+const SLOW_SPAWN_TIMEOUT_MS = 15000;
+
 // ============================================================================
 // sanitize() tests
 // ============================================================================
@@ -108,7 +113,7 @@ test('parseExtraCmdArg handles command with spaces and quotes', () => {
 // ============================================================================
 
 test('runExtraCmd returns label from valid JSON output', async () => {
-  const result = await runExtraCmd(emitCmd("JSON.stringify({label:'test'})"));
+  const result = await runExtraCmd(emitCmd("JSON.stringify({label:'test'})"), SLOW_SPAWN_TIMEOUT_MS);
   assert.equal(result, 'test');
 });
 
@@ -128,14 +133,15 @@ test('runExtraCmd returns null for JSON with non-string label', async () => {
 });
 
 test('runExtraCmd truncates long labels with ellipsis', async () => {
-  const result = await runExtraCmd(emitCmd("JSON.stringify({label:'a'.repeat(60)})"));
+  const result = await runExtraCmd(emitCmd("JSON.stringify({label:'a'.repeat(60)})"), SLOW_SPAWN_TIMEOUT_MS);
   assert.equal(result?.length, 50);
   assert.ok(result?.endsWith('…'));
 });
 
 test('runExtraCmd sanitizes output containing escape sequences', async () => {
   const result = await runExtraCmd(
-    emitCmd("JSON.stringify({label:String.fromCharCode(27)+'[31mRed'+String.fromCharCode(27)+'[0m'})")
+    emitCmd("JSON.stringify({label:String.fromCharCode(27)+'[31mRed'+String.fromCharCode(27)+'[0m'})"),
+    SLOW_SPAWN_TIMEOUT_MS
   );
   assert.equal(result, 'Red');
 });
@@ -174,6 +180,6 @@ test('runExtraCmd handles null JSON', async () => {
 });
 
 test('runExtraCmd handles valid JSON with extra whitespace', async () => {
-  const result = await runExtraCmd(emitCmd("'  '+JSON.stringify({label:'trimmed'})+'  '"));
+  const result = await runExtraCmd(emitCmd("'  '+JSON.stringify({label:'trimmed'})+'  '"), SLOW_SPAWN_TIMEOUT_MS);
   assert.equal(result, 'trimmed');
 });

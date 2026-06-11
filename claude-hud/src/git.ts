@@ -33,6 +33,28 @@ export interface GitStatus {
   branchUrl?: string;
 }
 
+export interface GitCommandOptions {
+  /**
+   * Per-git-command timeout in milliseconds. On machines where spawning git
+   * is slow (e.g. antivirus real-time scanning on Windows), the default 1s
+   * can silently kill commands and drop git info from the statusline; raise
+   * it via `gitStatus.commandTimeoutMs`.
+   */
+  timeoutMs?: number;
+}
+
+const DEFAULT_GIT_TIMEOUT_MS = 1000;
+const MIN_GIT_TIMEOUT_MS = 250;
+const MAX_GIT_TIMEOUT_MS = 30000;
+
+function resolveTimeout(options?: GitCommandOptions): number {
+  const value = options?.timeoutMs;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return DEFAULT_GIT_TIMEOUT_MS;
+  }
+  return Math.min(MAX_GIT_TIMEOUT_MS, Math.max(MIN_GIT_TIMEOUT_MS, Math.floor(value)));
+}
+
 export interface SubmoduleConfig {
   /** Number of gitlink entries (mode 160000) — nested git repos / submodules. */
   count: number;
@@ -51,14 +73,15 @@ export interface SubmoduleConfig {
  * Returns `count: 0` when the repo has no gitlinks (nothing to warn about),
  * or null when `cwd` is missing / not a git repo.
  */
-export async function getSubmoduleConfig(cwd?: string): Promise<SubmoduleConfig | null> {
+export async function getSubmoduleConfig(cwd?: string, options?: GitCommandOptions): Promise<SubmoduleConfig | null> {
   if (!cwd) return null;
 
+  const timeout = resolveTimeout(options);
   try {
     const { stdout } = await execFileAsync(
       'git',
       ['ls-files', '-s'],
-      { cwd, timeout: 1500, encoding: 'utf8', windowsHide: true, maxBuffer: 16 * 1024 * 1024 }
+      { cwd, timeout: Math.round(timeout * 1.5), encoding: 'utf8', windowsHide: true, maxBuffer: 16 * 1024 * 1024 }
     );
 
     let count = 0;
@@ -76,7 +99,7 @@ export async function getSubmoduleConfig(cwd?: string): Promise<SubmoduleConfig 
       const { stdout: cfgOut } = await execFileAsync(
         'git',
         ['config', '--get', 'push.recurseSubmodules'],
-        { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+        { cwd, timeout, encoding: 'utf8', windowsHide: true }
       );
       recurseValue = cfgOut.trim() || null;
     } catch {
@@ -89,14 +112,14 @@ export async function getSubmoduleConfig(cwd?: string): Promise<SubmoduleConfig 
   }
 }
 
-export async function getGitBranch(cwd?: string): Promise<string | null> {
+export async function getGitBranch(cwd?: string, options?: GitCommandOptions): Promise<string | null> {
   if (!cwd) return null;
 
   try {
     const { stdout } = await execFileAsync(
       'git',
       ['rev-parse', '--abbrev-ref', 'HEAD'],
-      { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+      { cwd, timeout: resolveTimeout(options), encoding: 'utf8', windowsHide: true }
     );
     return stdout.trim() || null;
   } catch {
@@ -104,15 +127,16 @@ export async function getGitBranch(cwd?: string): Promise<string | null> {
   }
 }
 
-export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
+export async function getGitStatus(cwd?: string, options?: GitCommandOptions): Promise<GitStatus | null> {
   if (!cwd) return null;
 
+  const timeout = resolveTimeout(options);
   try {
     // Get branch name
     const { stdout: branchOut } = await execFileAsync(
       'git',
       ['rev-parse', '--abbrev-ref', 'HEAD'],
-      { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+      { cwd, timeout, encoding: 'utf8', windowsHide: true }
     );
     const branch = branchOut.trim();
     if (!branch) return null;
@@ -125,7 +149,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       const { stdout: statusOut } = await execFileAsync(
         'git',
         ['-c', 'core.quotePath=false', '--no-optional-locks', 'status', '--porcelain'],
-        { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+        { cwd, timeout, encoding: 'utf8', windowsHide: true }
       );
       const trimmed = statusOut.trim();
       isDirty = trimmed.length > 0;
@@ -142,7 +166,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
         const { stdout: numstatOut } = await execFileAsync(
           'git',
           ['-c', 'core.quotePath=false', 'diff', '--numstat', 'HEAD'],
-          { cwd, timeout: 2000, encoding: 'utf8', windowsHide: true }
+          { cwd, timeout: timeout * 2, encoding: 'utf8', windowsHide: true }
         );
         const trackedPaths = new Set(fileStats?.trackedFiles.map((file) => file.fullPath) ?? []);
         const { totalDiff, perFileDiff } = parseNumstat(numstatOut, trackedPaths);
@@ -162,7 +186,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       const { stdout: revOut } = await execFileAsync(
         'git',
         ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'],
-        { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+        { cwd, timeout, encoding: 'utf8', windowsHide: true }
       );
       const parts = revOut.trim().split(/\s+/);
       if (parts.length === 2) {
@@ -179,7 +203,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       const { stdout: remoteOut } = await execFileAsync(
         'git',
         ['remote', 'get-url', 'origin'],
-        { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+        { cwd, timeout, encoding: 'utf8', windowsHide: true }
       );
       const remote = remoteOut.trim();
       const httpsBase = remote
