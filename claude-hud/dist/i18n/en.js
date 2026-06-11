@@ -13,6 +13,7 @@ export const en = {
     "label.sessionStarted": "Started",
     "label.lastReply": "Last reply",
     "label.chatsPeak": "peak",
+    "label.updateAvailable": "update available",
     // Status
     "status.limitReached": "Limit reached",
     "status.allTodosComplete": "All todos complete",

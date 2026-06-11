@@ -13,6 +13,7 @@ export type MessageKey =
   | "label.sessionStarted"
   | "label.lastReply"
   | "label.chatsPeak"
+  | "label.updateAvailable"
   // Status
   | "status.limitReached"
   | "status.allTodosComplete"

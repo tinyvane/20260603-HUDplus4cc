@@ -8,6 +8,7 @@ import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
 import { getChatStats } from "./chat-stats.js";
+import { getPluginVersionInfo } from "./plugin-version.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
@@ -33,6 +34,7 @@ export type MainDeps = {
   getClaudeCodeVersion: typeof getClaudeCodeVersion;
   getMemoryUsage: typeof getMemoryUsage;
   getChatStats: typeof getChatStats;
+  getPluginVersionInfo: typeof getPluginVersionInfo;
   applyContextWindowFallback: typeof applyContextWindowFallback;
   render: typeof render;
   now: () => number;
@@ -55,6 +57,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     getClaudeCodeVersion,
     getMemoryUsage,
     getChatStats,
+    getPluginVersionInfo,
     applyContextWindowFallback,
     render,
     now: () => Date.now(),
@@ -138,6 +141,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getSubmoduleConfig(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
       : null;
 
+    const pluginVersion = config.display.showVersion
+      ? deps.getPluginVersionInfo()
+      : null;
+
     const ctx: RenderContext = {
       stdin,
       transcript,
@@ -157,6 +164,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       effortSymbol: effortInfo?.symbol,
       chatStats,
       submoduleConfig,
+      pluginVersion,
     };
 
     deps.render(ctx);

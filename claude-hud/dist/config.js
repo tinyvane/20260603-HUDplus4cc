@@ -68,6 +68,7 @@ export const DEFAULT_CONFIG = {
         chatClickable: true,
         showAcpec: false,
         showSubmodulePush: false,
+        showVersion: true,
         showSessionName: false,
         showClaudeCodeVersion: false,
         showEffortLevel: false,
@@ -441,6 +442,9 @@ export function mergeConfig(userConfig) {
         showSubmodulePush: typeof migrated.display?.showSubmodulePush === 'boolean'
             ? migrated.display.showSubmodulePush
             : DEFAULT_CONFIG.display.showSubmodulePush,
+        showVersion: typeof migrated.display?.showVersion === 'boolean'
+            ? migrated.display.showVersion
+            : DEFAULT_CONFIG.display.showVersion,
         showSessionName: typeof migrated.display?.showSessionName === 'boolean'
             ? migrated.display.showSessionName
             : DEFAULT_CONFIG.display.showSessionName,

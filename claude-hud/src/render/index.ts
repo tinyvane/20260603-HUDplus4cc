@@ -20,6 +20,7 @@ import {
   renderAcpecLine,
   renderSubmoduleLine,
 } from './lines/index.js';
+import { renderVersionLine } from './lines/version.js';
 import { dim, RESET } from './colors.js';
 import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 import { codePointCellWidth, isCjkAmbiguousWide } from './width.js';
@@ -570,6 +571,14 @@ export function render(ctx: RenderContext): void {
   // and produce incorrect line breaks.
   const wrapWidth = terminalWidth !== UNKNOWN_TERMINAL_WIDTH ? (terminalWidth ?? 0) : 0;
   const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, wrapWidth));
+
+  // Version footer: always the last line, right-aligned when the terminal
+  // width is known so it sits in the bottom-right corner of the HUD.
+  const versionLine = renderVersionLine(ctx);
+  if (versionLine) {
+    const padding = wrapWidth > 0 ? wrapWidth - visualLength(versionLine) : 0;
+    visibleLines.push(padding > 0 ? ' '.repeat(padding) + versionLine : versionLine);
+  }
 
   for (const line of visibleLines) {
     const outputLine = `${RESET}${line}`;

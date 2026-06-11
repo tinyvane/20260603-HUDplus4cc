@@ -8,6 +8,7 @@ import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
 import { getChatStats } from "./chat-stats.js";
+import { getPluginVersionInfo } from "./plugin-version.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
@@ -31,6 +32,7 @@ export async function main(overrides = {}) {
         getClaudeCodeVersion,
         getMemoryUsage,
         getChatStats,
+        getPluginVersionInfo,
         applyContextWindowFallback,
         render,
         now: () => Date.now(),
@@ -95,6 +97,9 @@ export async function main(overrides = {}) {
         const submoduleConfig = config.display.showSubmodulePush
             ? await deps.getSubmoduleConfig(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
             : null;
+        const pluginVersion = config.display.showVersion
+            ? deps.getPluginVersionInfo()
+            : null;
         const ctx = {
             stdin,
             transcript,
@@ -114,6 +119,7 @@ export async function main(overrides = {}) {
             effortSymbol: effortInfo?.symbol,
             chatStats,
             submoduleConfig,
+            pluginVersion,
         };
         deps.render(ctx);
     }

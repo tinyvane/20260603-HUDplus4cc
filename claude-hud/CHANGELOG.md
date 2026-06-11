@@ -2,6 +2,11 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [0.3.0] - 2026-06-12
+
+### Added
+- Plugin version footer, shown by default in the bottom-right corner of the HUD (`display.showVersion`, default true). When a local marketplace clone advertises a newer claude-hud version, the footer appends an update hint, e.g. `claude-hud v0.3.0 (v0.4.0 update available)`. Detection is fully offline — update via `/plugin update claude-hud`.
+
 ## [0.2.0] - 2026-06-12
 
 ### Added

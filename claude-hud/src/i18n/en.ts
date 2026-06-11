@@ -1,4 +1,4 @@
-import type { Messages } from "./types.js";
+﻿import type { Messages } from "./types.js";
 
 export const en: Messages = {
   // Labels
@@ -15,6 +15,7 @@ export const en: Messages = {
   "label.sessionStarted": "Started",
   "label.lastReply": "Last reply",
   "label.chatsPeak": "peak",
+  "label.updateAvailable": "update available",
 
   // Status
   "status.limitReached": "Limit reached",

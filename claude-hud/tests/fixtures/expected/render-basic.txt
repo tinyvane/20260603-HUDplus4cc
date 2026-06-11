@@ -1,2 +1,3 @@
 [Opus] │ my-project
 Context ███░░░░░░░ 29%
+claude-hud vX.Y.Z

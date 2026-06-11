@@ -83,6 +83,7 @@ export interface HudConfig {
         chatClickable: boolean;
         showAcpec: boolean;
         showSubmodulePush: boolean;
+        showVersion: boolean;
         showSessionName: boolean;
         showClaudeCodeVersion: boolean;
         showEffortLevel: boolean;

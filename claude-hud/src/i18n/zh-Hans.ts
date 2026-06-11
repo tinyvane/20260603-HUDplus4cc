@@ -1,4 +1,4 @@
-import type { Messages } from "./types.js";
+﻿import type { Messages } from "./types.js";
 
 export const zhHans: Messages = {
   // Labels
@@ -15,6 +15,7 @@ export const zhHans: Messages = {
   "label.sessionStarted": "开始",
   "label.lastReply": "上次回复",
   "label.chatsPeak": "峰值",
+  "label.updateAvailable": "有可选更新",
 
   // Status
   "status.limitReached": "已达上限",

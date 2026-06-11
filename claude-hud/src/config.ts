@@ -122,6 +122,7 @@ export interface HudConfig {
     chatClickable: boolean;
     showAcpec: boolean;
     showSubmodulePush: boolean;
+    showVersion: boolean;
     showSessionName: boolean;
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
@@ -206,6 +207,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     chatClickable: true,
     showAcpec: false,
     showSubmodulePush: false,
+    showVersion: true,
     showSessionName: false,
     showClaudeCodeVersion: false,
     showEffortLevel: false,
@@ -629,6 +631,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showSubmodulePush: typeof migrated.display?.showSubmodulePush === 'boolean'
       ? migrated.display.showSubmodulePush
       : DEFAULT_CONFIG.display.showSubmodulePush,
+    showVersion: typeof migrated.display?.showVersion === 'boolean'
+      ? migrated.display.showVersion
+      : DEFAULT_CONFIG.display.showVersion,
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,

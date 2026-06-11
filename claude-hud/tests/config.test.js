@@ -212,6 +212,16 @@ test('mergeConfig defaults gitStatus.commandTimeoutMs to 1000', () => {
   assert.equal(config.gitStatus.commandTimeoutMs, 1000);
 });
 
+test('mergeConfig defaults showVersion to true', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showVersion, true);
+});
+
+test('mergeConfig preserves explicit showVersion=false', () => {
+  const config = mergeConfig({ display: { showVersion: false } });
+  assert.equal(config.display.showVersion, false);
+});
+
 test('mergeConfig preserves and clamps gitStatus.commandTimeoutMs', () => {
   assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: 5000 } }).gitStatus.commandTimeoutMs, 5000);
   assert.equal(mergeConfig({ gitStatus: { commandTimeoutMs: 100 } }).gitStatus.commandTimeoutMs, 250);

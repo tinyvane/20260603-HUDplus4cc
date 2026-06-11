@@ -67,6 +67,9 @@ test("CLI renders expected output for a basic transcript", async (t) => {
     assert.equal(result.status, 0, result.stderr || "non-zero exit");
     const normalized = stripAnsi(result.stdout)
       .replace(/\u00A0/g, " ")
+      // The version footer carries the real plugin version; normalize it so
+      // the snapshot doesn't churn on every release.
+      .replace(/claude-hud v\d+(\.\d+)*/, "claude-hud vX.Y.Z")
       .trimEnd();
     if (process.env.UPDATE_SNAPSHOTS === "1") {
       await writeFile(expectedPath, normalized + "\n", "utf8");

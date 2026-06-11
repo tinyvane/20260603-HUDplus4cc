@@ -13,6 +13,7 @@ export const zhHans = {
     "label.sessionStarted": "开始",
     "label.lastReply": "上次回复",
     "label.chatsPeak": "峰值",
+    "label.updateAvailable": "有可选更新",
     // Status
     "status.limitReached": "已达上限",
     "status.allTodosComplete": "全部完成",

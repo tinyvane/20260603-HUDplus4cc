@@ -1,6 +1,7 @@
-import type { HudConfig } from './config.js';
+﻿import type { HudConfig } from './config.js';
 import type { GitStatus, SubmoduleConfig } from './git.js';
 import type { ChatStats } from './chat-stats.js';
+import type { PluginVersionInfo } from './plugin-version.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -149,4 +150,5 @@ export interface RenderContext {
   effortSymbol?: string;
   chatStats?: ChatStats | null;
   submoduleConfig?: SubmoduleConfig | null;
+  pluginVersion?: PluginVersionInfo | null;
 }

@@ -204,6 +204,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.chatClickable` | boolean | true | Make the chats counter an OSC 8 hyperlink that opens the project's sessions folder in supporting terminals |
 | `display.showAcpec` | boolean | false | Show the ACPEC auto-sync indicator: `ACPEC ✓` when enabled, `ACPEC ✗` when off |
 | `display.showSubmodulePush` | boolean | false | Warn when the repo tracks nested git repos (gitlinks) but `push.recurseSubmodules` is not `on-demand`; hidden when the repo has no gitlinks |
+| `display.showVersion` | boolean | true | Show the plugin version as a right-aligned footer line, with an update hint (e.g. `claude-hud v0.3.0 (v0.4.0 update available)`) when a local marketplace clone carries a newer version. Fully offline — update via `/plugin update claude-hud` |
 | `chatArchive.path` | string | `""` | Archive directory used by `/claude-hud:backup-chats` and `/claude-hud:recover-chats` |
 | `acpec.enabled` | boolean | false | Enable ACPEC — auto commit + push tracked changes when a conversation ends. Manage with `/claude-hud:acpec on\|off\|status` |
 | `acpec.commitPrefix` | string | `chore(acpec): auto-sync` | Commit message prefix for ACPEC auto-commits |

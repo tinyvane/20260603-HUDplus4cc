@@ -265,6 +265,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Chat: clickable link | `display.chatClickable` |
 | ACPEC status indicator | `display.showAcpec` |
 | Submodule push reminder | `display.showSubmodulePush` |
+| Version footer (default on) | `display.showVersion` |
 | Custom line | `display.customLine` |
 | Custom line position | `display.customLinePosition` |
 
