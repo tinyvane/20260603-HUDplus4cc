@@ -2,11 +2,19 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
-## [Unreleased]
+## [0.2.0] - 2026-06-12
+
+### Added
+- `/claude-hud:setup` wizard now offers the HUD+ session sync & backup tools as a second optional-features step: chats line, ACPEC auto-sync, submodule push reminder, and chat archive path for backup/recover.
+- `gitStatus.commandTimeoutMs` config to raise per-git-command timeouts on machines where spawning git is slow (e.g. antivirus scanning on Windows), preventing git info from randomly disappearing.
+
+### Changed
+- Published as the `hudplus` marketplace at `tinyvane/20260603-HUDplus4cc`; plugin homepage/repository now point at this fork.
 
 ### Fixed
 - Windows + PowerShell `/claude-hud:setup` now writes a `statusline.ps1` wrapper with a guarded width fallback and corrected version-directory glob (#521).
 - Added Windows PowerShell 5.1 guidance for writing `settings.json` without a UTF-8 BOM.
+- Test suite no longer flakes on slow-git machines or reads the real user config; `mkdir -p` test fixture replaced with `fs.mkdir` for Windows compatibility.
 
 ## [0.0.12] - 2026-04-04
 

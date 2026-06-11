@@ -533,18 +533,33 @@ After successfully writing the config, tell the user:
 
 ## Step 4: Optional Features
 
-After the statusLine is applied, ask the user if they'd like to enable additional HUD features beyond the default 2-line display.
+After the statusLine is applied, ask the user if they'd like to enable additional HUD features beyond the default 2-line display. AskUserQuestion supports at most 4 options per question, so this step asks **two questions** — do not merge them into one or drop options.
+
+### 4a: Display extras
 
 Use AskUserQuestion:
 - header: "Extras"
-- question: "Enable any optional HUD features? (all hidden by default)"
+- question: "Enable any optional HUD display features? (all hidden by default)"
 - multiSelect: true
 - options:
   - "Tools activity" — Shows running/completed tools (◐ Edit: file.ts | ✓ Read ×3)
   - "Agents & Todos" — Shows subagent status and todo progress
-  - "Session info" — Shows session duration and config counts (CLAUDE.md, rules, MCPs)
-  - "Session name" — Shows session slug or custom title from /rename
+  - "Session info & name" — Shows session duration, config counts (CLAUDE.md, rules, MCPs), and the session slug or custom title from /rename
   - "Custom line" — Display a custom phrase in the HUD
+
+### 4b: Session sync & backup tools (HUD+)
+
+Use AskUserQuestion:
+- header: "Sync tools"
+- question: "Enable session sync & backup tools? These help keep conversations and code in sync across machines. (all off by default)"
+- multiSelect: true
+- options:
+  - "Chats line" — 💬 session counter for the current project, with a persisted peak high-water mark and a ⚠ alert when sessions go missing (sync-loss sentinel), plus total size and last-active age
+  - "ACPEC auto-sync" — Auto commit + push tracked changes when each conversation ends, with an `ACPEC ✓/✗` HUD indicator
+  - "Submodule push reminder" — Warns when the repo tracks nested git repos but `push.recurseSubmodules` is not `on-demand` (a plain push silently skips them)
+  - "Chat backup/recover" — Configure an archive folder for `/claude-hud:backup-chats` and `/claude-hud:recover-chats` (ideally inside a synced location like Dropbox/Syncthing)
+
+### Applying the selections
 
 **If user selects any options**, write `plugins/claude-hud/config.json` inside the Claude config directory (`${CLAUDE_CONFIG_DIR:-$HOME/.claude}` on bash, `$env:CLAUDE_CONFIG_DIR` or `Join-Path $HOME ".claude"` on PowerShell). Create directories if needed:
 
@@ -552,13 +567,20 @@ Use AskUserQuestion:
 |-----------|------------|
 | Tools activity | `display.showTools: true` |
 | Agents & Todos | `display.showAgents: true, display.showTodos: true` |
-| Session info | `display.showDuration: true, display.showConfigCounts: true` |
-| Session name | `display.showSessionName: true` |
+| Session info & name | `display.showDuration: true, display.showConfigCounts: true, display.showSessionName: true` |
 | Custom line | `display.customLine: "<user's text>"` — ask user for the text (max 80 chars) |
+| Chats line | `display.showChats: true, display.chatShowSize: true, display.chatShowLastActive: true` |
+| ACPEC auto-sync | `display.showAcpec: true` — then see the ACPEC note below |
+| Submodule push reminder | `display.showSubmodulePush: true` |
+| Chat backup/recover | `chatArchive.path: "<absolute folder path>"` — ask user for the path (see below) |
 
 Merge with existing config if the file already exists. Only write keys the user selected — don't write `false` for unselected items (defaults handle that).
 
-**If user selects nothing** (or picks "Other" and says skip/none), do not create a config file. The defaults are fine.
+**ACPEC note**: `display.showAcpec` only shows the indicator. Actually enabling ACPEC registers a SessionEnd hook and runs a `.gitignore` safety gate, which is handled by a dedicated command. After finishing setup, tell the user to run `/claude-hud:acpec on` to complete ACPEC activation — do **not** set `acpec.enabled` or modify hooks directly from this setup flow.
+
+**Chat backup/recover note**: Ask the user (AskUserQuestion with an "Other" free-text path, suggesting a likely synced folder if one is apparent) for an absolute archive folder path and write it to `chatArchive.path`. Do not create the folder; the backup command handles that. Mention that backups are run manually via `/claude-hud:backup-chats`.
+
+**If user selects nothing in both questions** (or picks "Other" and says skip/none), do not create a config file. The defaults are fine.
 
 ---
 

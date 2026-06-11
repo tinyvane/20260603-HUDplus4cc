@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "HUD+ — enhanced fork of Claude HUD with cross-machine session sync tools: chats counter with loss sentinel, chat backup/recover, ACPEC auto commit+push, and submodule push reminders",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
