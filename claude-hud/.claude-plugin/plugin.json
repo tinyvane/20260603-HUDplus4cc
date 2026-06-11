@@ -13,8 +13,8 @@
     "./commands/recover-chats.md",
     "./commands/acpec.md"
   ],
-  "homepage": "https://github.com/jarrodwatts/claude-hud",
-  "repository": "https://github.com/jarrodwatts/claude-hud",
+  "homepage": "https://github.com/tinyvane/20260603-HUDplus4cc",
+  "repository": "https://github.com/tinyvane/20260603-HUDplus4cc",
   "license": "MIT",
   "keywords": ["hud", "monitoring", "statusline", "context", "tools", "agents", "todos", "claude-code"]
 }
