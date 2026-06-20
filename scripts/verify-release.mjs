@@ -26,7 +26,6 @@ const versions = new Map([
   ['package-lock.json root package', packageLock.packages[''].version],
   ['.claude-plugin/plugin.json', readJson('.claude-plugin/plugin.json').version],
   ['.claude-plugin/marketplace.json', readJson('.claude-plugin/marketplace.json').metadata.version],
-  ['../.claude-plugin/marketplace.json', readJson('../.claude-plugin/marketplace.json').metadata.version],
 ]);
 
 const mismatches = [...versions].filter(([, version]) => version !== expectedVersion);

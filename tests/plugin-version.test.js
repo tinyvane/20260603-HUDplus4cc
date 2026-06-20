@@ -81,6 +81,16 @@ test('getLatestMarketplaceVersion reads a subdirectory plugin source', async () 
   }
 });
 
+test('getLatestMarketplaceVersion reads a repository-root plugin source', async () => {
+  const configDir = await mkdtemp(path.join(tmpdir(), 'hud-ver-root-'));
+  try {
+    await writeMarketplace(configDir, 'hudplus', './', '0.9.0');
+    assert.equal(getLatestMarketplaceVersion(configDir), '0.9.0');
+  } finally {
+    await rm(configDir, { recursive: true, force: true });
+  }
+});
+
 test('getLatestMarketplaceVersion takes the max across marketplaces', async () => {
   const configDir = await mkdtemp(path.join(tmpdir(), 'hud-ver-multi-'));
   try {

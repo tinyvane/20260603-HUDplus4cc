@@ -2,6 +2,13 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [0.4.2] - 2026-06-20
+
+### Changed
+- Flatten the single-plugin repository so source, tests, documentation, and package metadata live at the repository root.
+- Point the `hudplus` marketplace at the root plugin while preserving the `claude-hud` plugin name and installed cache layout.
+- Update CI, Dependabot, release verification, and build paths for the flattened layout.
+
 ## [0.4.1] - 2026-06-20
 
 ### Security
