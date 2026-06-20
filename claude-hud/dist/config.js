@@ -8,17 +8,19 @@ export const DEFAULT_ELEMENT_ORDER = [
     'usage',
     'promptCache',
     'memory',
-    'environment',
-    'chats',
-    'acpec',
     'submodulePush',
     'tools',
     'agents',
     'todos',
     'sessionTime',
+    'acpec',
+    'environment',
+    'chats',
+    'version',
 ];
 export const DEFAULT_MERGE_GROUPS = [
     ['context', 'usage'],
+    ['acpec', 'environment', 'chats', 'version'],
 ];
 const KNOWN_ELEMENTS = new Set(DEFAULT_ELEMENT_ORDER);
 export const DEFAULT_CONFIG = {

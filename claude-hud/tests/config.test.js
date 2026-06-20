@@ -526,7 +526,7 @@ test('mergeConfig defaults elementOrder to the full expanded layout', () => {
   assert.deepEqual(config.elementOrder, DEFAULT_ELEMENT_ORDER);
 });
 
-test('mergeConfig defaults mergeGroups to context and usage', () => {
+test('mergeConfig defaults mergeGroups to context/usage and footer status bar', () => {
   const config = mergeConfig({});
   assert.deepEqual(config.display.mergeGroups, DEFAULT_MERGE_GROUPS);
   assert.deepEqual(DEFAULT_CONFIG.display.mergeGroups, DEFAULT_MERGE_GROUPS);

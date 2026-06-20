@@ -332,6 +332,8 @@ function renderElementLine(ctx, element, options) {
             return display?.showTodos === false ? null : renderTodosLine(ctx);
         case 'sessionTime':
             return renderSessionTimeLine(ctx);
+        case 'version':
+            return renderVersionLine(ctx);
     }
 }
 function renderCompact(ctx) {
@@ -465,13 +467,6 @@ export function render(ctx) {
     // and produce incorrect line breaks.
     const wrapWidth = terminalWidth !== UNKNOWN_TERMINAL_WIDTH ? (terminalWidth ?? 0) : 0;
     const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, wrapWidth));
-    // Version footer: always the last line, right-aligned when the terminal
-    // width is known so it sits in the bottom-right corner of the HUD.
-    const versionLine = renderVersionLine(ctx);
-    if (versionLine) {
-        const padding = wrapWidth > 0 ? wrapWidth - visualLength(versionLine) : 0;
-        visibleLines.push(padding > 0 ? ' '.repeat(padding) + versionLine : versionLine);
-    }
     for (const line of visibleLines) {
         const outputLine = `${RESET}${line}`;
         console.log(outputLine);
