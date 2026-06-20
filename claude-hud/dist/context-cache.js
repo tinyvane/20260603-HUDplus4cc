@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { createHash } from "node:crypto";
 import { getHudPluginDir } from "./claude-config-dir.js";
+import { atomicWriteFileSync } from "./utils/cache.js";
 const CACHE_DIRNAME = "context-cache";
 /**
  * Minimum interval between cache rewrites for the same session.
@@ -84,10 +85,6 @@ function writeCache(homeDir, transcriptPath, contextWindow, now, sessionName) {
         if (shouldSkipWrite(cachePath, now)) {
             return;
         }
-        const cacheDir = path.dirname(cachePath);
-        if (!fs.existsSync(cacheDir)) {
-            fs.mkdirSync(cacheDir, { recursive: true });
-        }
         const payload = {
             used_percentage: contextWindow.used_percentage ?? 0,
             remaining_percentage: contextWindow.remaining_percentage ?? null,
@@ -96,9 +93,7 @@ function writeCache(homeDir, transcriptPath, contextWindow, now, sessionName) {
             saved_at: now,
             session_name: sessionName ?? null,
         };
-        fs.writeFileSync(cachePath, JSON.stringify(payload), "utf8");
-        const timestampSeconds = now / 1000;
-        fs.utimesSync(cachePath, timestampSeconds, timestampSeconds);
+        atomicWriteFileSync(cachePath, JSON.stringify(payload), { mtimeMs: now });
     }
     catch {
         // Ignore cache write failures

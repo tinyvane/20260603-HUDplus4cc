@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { sanitizeTerminalText } from './utils/sanitize.js';
 import { getHomeDir, getHudPluginDir } from './claude-config-dir.js';
 import type { Language } from './i18n/types.js';
 
@@ -689,10 +690,10 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       ? migrated.display.modelFormat
       : DEFAULT_CONFIG.display.modelFormat,
     modelOverride: typeof migrated.display?.modelOverride === 'string'
-      ? migrated.display.modelOverride.slice(0, 80)
+      ? sanitizeTerminalText(migrated.display.modelOverride, 80)
       : DEFAULT_CONFIG.display.modelOverride,
     customLine: typeof migrated.display?.customLine === 'string'
-      ? migrated.display.customLine.slice(0, 80)
+      ? sanitizeTerminalText(migrated.display.customLine, 80)
       : DEFAULT_CONFIG.display.customLine,
     customLinePosition: validateCustomLinePosition(migrated.display?.customLinePosition)
       ? migrated.display.customLinePosition

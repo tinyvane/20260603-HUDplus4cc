@@ -138,6 +138,23 @@ test('runAcpec ignores untracked files (never auto-commits new files)', async ()
   }
 });
 
+test('runAcpec refuses to absorb pre-existing staged files', async () => {
+  const repo = await setupRepo();
+  try {
+    await writeFile(path.join(repo.work, 'staged-secret.txt'), 'secret\n');
+    git(repo.work, 'add', 'staged-secret.txt');
+    await writeFile(path.join(repo.work, 'tracked.txt'), 'changed\n');
+
+    const result = runAcpec({ cwd: repo.work, config: cfg({ enabled: true }) });
+    assert.equal(result.action, 'skipped');
+    assert.equal(result.reason, 'pre-existing-staged-changes');
+    assert.match(git(repo.work, 'status', '--short'), /A  staged-secret\.txt/);
+    assert.equal(git(repo.work, 'log', '--oneline').split('\n').length, 1);
+  } finally {
+    await cleanup(repo);
+  }
+});
+
 test('runAcpec commits tracked deletions', async () => {
   const repo = await setupRepo();
   try {

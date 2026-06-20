@@ -3,6 +3,7 @@ export interface ArchiveProjectResult {
     project: string;
     copied: string[];
     skipped: string[];
+    conflicts: string[];
 }
 export interface ArchiveResult {
     mode: ArchiveMode;
@@ -10,6 +11,7 @@ export interface ArchiveResult {
     projects: number;
     copied: number;
     skipped: number;
+    conflicts: number;
     details: ArchiveProjectResult[];
 }
 export interface ArchiveOptions {

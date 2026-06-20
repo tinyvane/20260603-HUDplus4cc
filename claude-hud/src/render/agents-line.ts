@@ -1,5 +1,6 @@
 import type { RenderContext, AgentEntry } from '../types.js';
 import { yellow, green, magenta, label } from './colors.js';
+import { sanitizeTerminalText } from '../utils/sanitize.js';
 
 const MAX_RECENT_COMPLETED = 2;
 const MAX_AGENTS_SHOWN = 3;
@@ -50,10 +51,11 @@ function formatAgent(
   colors?: RenderContext['config']['colors']
 ): string {
   const statusIcon = getStatusIcon(agent.status);
-  const type = magenta(agent.type);
-  const model = agent.model ? label(`[${agent.model}]`, colors) : '';
+  const type = magenta(sanitizeTerminalText(agent.type));
+  const modelText = sanitizeTerminalText(agent.model);
+  const model = modelText ? label(`[${modelText}]`, colors) : '';
   const desc = agent.description
-    ? label(`: ${truncateDesc(agent.description)}`, colors)
+    ? label(`: ${truncateDesc(sanitizeTerminalText(agent.description))}`, colors)
     : '';
   const elapsed = formatElapsed(agent);
 

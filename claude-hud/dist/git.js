@@ -64,6 +64,9 @@ export async function getGitStatus(cwd, options) {
     if (!cwd)
         return null;
     const timeout = resolveTimeout(options);
+    const collectAheadBehind = options?.showAheadBehind ?? true;
+    const collectFileStats = options?.showFileStats ?? true;
+    const includeBranchUrl = options?.includeBranchUrl ?? true;
     try {
         // Get branch name
         const { stdout: branchOut } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
@@ -78,7 +81,7 @@ export async function getGitStatus(cwd, options) {
             const { stdout: statusOut } = await execFileAsync('git', ['-c', 'core.quotePath=false', '--no-optional-locks', 'status', '--porcelain'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
             const trimmed = statusOut.trim();
             isDirty = trimmed.length > 0;
-            if (isDirty) {
+            if (isDirty && collectFileStats) {
                 fileStats = parseFileStats(trimmed);
             }
         }
@@ -86,7 +89,7 @@ export async function getGitStatus(cwd, options) {
             // Ignore errors, assume clean
         }
         // Get per-file and total line diffs
-        if (isDirty) {
+        if (isDirty && collectFileStats) {
             try {
                 const { stdout: numstatOut } = await execFileAsync('git', ['-c', 'core.quotePath=false', 'diff', '--numstat', 'HEAD'], { cwd, timeout: timeout * 2, encoding: 'utf8', windowsHide: true });
                 const trackedPaths = new Set(fileStats?.trackedFiles.map((file) => file.fullPath) ?? []);
@@ -103,32 +106,36 @@ export async function getGitStatus(cwd, options) {
         // Get ahead/behind counts
         let ahead = 0;
         let behind = 0;
-        try {
-            const { stdout: revOut } = await execFileAsync('git', ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
-            const parts = revOut.trim().split(/\s+/);
-            if (parts.length === 2) {
-                behind = parseInt(parts[0], 10) || 0;
-                ahead = parseInt(parts[1], 10) || 0;
+        if (collectAheadBehind) {
+            try {
+                const { stdout: revOut } = await execFileAsync('git', ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
+                const parts = revOut.trim().split(/\s+/);
+                if (parts.length === 2) {
+                    behind = parseInt(parts[0], 10) || 0;
+                    ahead = parseInt(parts[1], 10) || 0;
+                }
             }
-        }
-        catch {
-            // No upstream or error, keep 0/0
+            catch {
+                // No upstream or error, keep 0/0
+            }
         }
         // Build GitHub branch URL from remote
         let branchUrl;
-        try {
-            const { stdout: remoteOut } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
-            const remote = remoteOut.trim();
-            const httpsBase = remote
-                .replace(/^git@github\.com:/, 'https://github.com/')
-                .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
-                .replace(/\.git$/, '');
-            if (httpsBase.startsWith('https://github.com/')) {
-                branchUrl = `${httpsBase}/tree/${encodeURIComponent(branch)}`;
+        if (includeBranchUrl) {
+            try {
+                const { stdout: remoteOut } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd, timeout, encoding: 'utf8', windowsHide: true });
+                const remote = remoteOut.trim();
+                const httpsBase = remote
+                    .replace(/^git@github\.com:/, 'https://github.com/')
+                    .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
+                    .replace(/\.git$/, '');
+                if (httpsBase.startsWith('https://github.com/')) {
+                    branchUrl = `${httpsBase}/tree/${encodeURIComponent(branch)}`;
+                }
             }
-        }
-        catch {
-            // No remote or not GitHub
+            catch {
+                // No remote or not GitHub
+            }
         }
         return { branch, isDirty, ahead, behind, fileStats, lineDiff, branchUrl };
     }

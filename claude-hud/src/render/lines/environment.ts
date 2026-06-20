@@ -1,6 +1,7 @@
 import type { RenderContext } from "../../types.js";
 import { label } from "../colors.js";
 import { t } from "../../i18n/index.js";
+import { sanitizeTerminalText } from "../../utils/sanitize.js";
 
 export function renderEnvironmentLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
@@ -30,7 +31,7 @@ export function renderEnvironmentLine(ctx: RenderContext): string | null {
   }
 
   if (showOutputStyle && ctx.outputStyle) {
-    parts.push(`style: ${ctx.outputStyle}`);
+    parts.push(`style: ${sanitizeTerminalText(ctx.outputStyle)}`);
   }
 
   if (parts.length === 0) {

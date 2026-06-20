@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import { createHash } from 'node:crypto';
 import type { StdinData } from './types.js';
 import { getHudPluginDir } from './claude-config-dir.js';
+import { atomicWriteFileSync, sweepCacheDirSync } from './utils/cache.js';
 
 const SPEED_WINDOW_MS = 2000;
 // Status lines can re-render many times per second while tokens stream.
@@ -58,11 +59,13 @@ function readCache(homeDir: string, transcriptPath: string): SpeedCache | null {
 function writeCache(homeDir: string, transcriptPath: string, cache: SpeedCache): void {
   try {
     const cachePath = getCachePath(homeDir, transcriptPath);
-    const cacheDir = path.dirname(cachePath);
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
+    atomicWriteFileSync(cachePath, JSON.stringify(cache));
+    if (Math.random() < 0.01) {
+      sweepCacheDirSync(path.dirname(cachePath), {
+        maxAgeMs: 7 * 24 * 60 * 60 * 1000,
+        maxEntries: 100,
+      });
     }
-    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
   } catch {
     // Ignore cache write failures
   }

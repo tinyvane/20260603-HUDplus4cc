@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { sanitizeTerminalText } from './utils/sanitize.js';
 import { getHomeDir, getHudPluginDir } from './claude-config-dir.js';
 export const DEFAULT_ELEMENT_ORDER = [
     'project',
@@ -491,10 +492,10 @@ export function mergeConfig(userConfig) {
             ? migrated.display.modelFormat
             : DEFAULT_CONFIG.display.modelFormat,
         modelOverride: typeof migrated.display?.modelOverride === 'string'
-            ? migrated.display.modelOverride.slice(0, 80)
+            ? sanitizeTerminalText(migrated.display.modelOverride, 80)
             : DEFAULT_CONFIG.display.modelOverride,
         customLine: typeof migrated.display?.customLine === 'string'
-            ? migrated.display.customLine.slice(0, 80)
+            ? sanitizeTerminalText(migrated.display.customLine, 80)
             : DEFAULT_CONFIG.display.customLine,
         customLinePosition: validateCustomLinePosition(migrated.display?.customLinePosition)
             ? migrated.display.customLinePosition

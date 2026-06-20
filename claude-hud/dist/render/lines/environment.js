@@ -1,5 +1,6 @@
 import { label } from "../colors.js";
 import { t } from "../../i18n/index.js";
+import { sanitizeTerminalText } from "../../utils/sanitize.js";
 export function renderEnvironmentLine(ctx) {
     const display = ctx.config?.display;
     const totalCounts = ctx.claudeMdCount + ctx.rulesCount + ctx.mcpCount + ctx.hooksCount;
@@ -22,7 +23,7 @@ export function renderEnvironmentLine(ctx) {
         }
     }
     if (showOutputStyle && ctx.outputStyle) {
-        parts.push(`style: ${ctx.outputStyle}`);
+        parts.push(`style: ${sanitizeTerminalText(ctx.outputStyle)}`);
     }
     if (parts.length === 0) {
         return null;

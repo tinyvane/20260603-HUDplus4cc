@@ -1,8 +1,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as path from 'node:path';
-import { getHomeDir, getClaudeConfigDir } from './claude-config-dir.js';
+import { getHomeDir, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
+import { atomicWriteFileSync } from './utils/cache.js';
 const PLUGIN_NAME = 'claude-hud';
+const VERSION_SCAN_CACHE_TTL_MS = 60_000;
+const VERSION_SCAN_CACHE_FILE = '.plugin-version-scan-cache.json';
 /** Compare dotted numeric versions. Returns <0, 0, >0 like a comparator. */
 export function compareVersions(a, b) {
     const pa = a.split('.').map((part) => parseInt(part, 10));
@@ -81,6 +84,39 @@ export function getLatestMarketplaceVersion(configDir) {
     return latest;
 }
 export function getPluginVersionInfo(options) {
+    if (!options) {
+        const homeDir = getHomeDir();
+        const cachePath = path.join(getHudPluginDir(homeDir), VERSION_SCAN_CACHE_FILE);
+        const current = getOwnVersion();
+        try {
+            const cached = JSON.parse(readFileSync(cachePath, 'utf8'));
+            if (typeof cached.checkedAt === 'number'
+                && Date.now() - cached.checkedAt < VERSION_SCAN_CACHE_TTL_MS
+                && cached.current === current
+                && (cached.current === null || isVersionString(cached.current))
+                && (cached.latest === null || isVersionString(cached.latest))
+                && typeof cached.updateAvailable === 'boolean') {
+                return {
+                    current: cached.current,
+                    latest: cached.latest,
+                    updateAvailable: cached.updateAvailable,
+                };
+            }
+        }
+        catch {
+            // Missing or stale cache falls through to a fresh marketplace scan.
+        }
+        const latest = getLatestMarketplaceVersion();
+        const updateAvailable = current !== null && latest !== null && compareVersions(latest, current) > 0;
+        const result = { current, latest, updateAvailable };
+        try {
+            atomicWriteFileSync(cachePath, JSON.stringify({ ...result, checkedAt: Date.now() }));
+        }
+        catch {
+            // Version display remains available when cache writes fail.
+        }
+        return result;
+    }
     const current = getOwnVersion(options?.moduleUrl);
     const latest = getLatestMarketplaceVersion(options?.configDir);
     const updateAvailable = current !== null && latest !== null && compareVersions(latest, current) > 0;

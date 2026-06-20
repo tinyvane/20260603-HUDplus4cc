@@ -1052,6 +1052,27 @@ test('parseTranscript handles edge-case lines and error statuses', async () => {
   }
 });
 
+test('parseTranscript rejects malformed tool and todo field types without poisoning render data', async () => {
+  const result = await parseTempTranscript('malformed-runtime-types.jsonl', [
+    {
+      timestamp: '2024-01-01T00:00:00.000Z',
+      message: {
+        content: [
+          null,
+          { type: 'tool_use', id: 'read-1', name: 'Read', input: { file_path: 42 } },
+          { type: 'tool_use', id: 'todo-1', name: 'TodoWrite', input: { todos: [null, { content: 42, status: [] }, { content: 'safe', status: 'in_progress' }] } },
+          { type: 'tool_use', id: 'agent-1', name: 'Agent', input: { subagent_type: 42, description: [] } },
+        ],
+      },
+    },
+  ]);
+
+  assert.equal(result.tools[0]?.target, undefined);
+  assert.deepEqual(result.todos, [{ content: 'safe', status: 'in_progress' }]);
+  assert.equal(result.agents[0]?.type, 'agent');
+  assert.equal(result.agents[0]?.description, undefined);
+});
+
 test('parseTranscript detects agents recorded with the Agent tool name', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'agent-tool-name.jsonl');

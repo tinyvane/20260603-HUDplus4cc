@@ -10,6 +10,7 @@ import { renderSessionTimeLine } from './lines/session-time.js';
 import { t } from '../i18n/index.js';
 import type { TimeFormatMode, UsageValueMode } from '../config.js';
 import { formatResetTime } from './format-reset-time.js';
+import { sanitizeTerminalText } from '../utils/sanitize.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
@@ -18,7 +19,7 @@ const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG ===
  * Used for compact layout mode.
  */
 export function renderSessionLine(ctx: RenderContext): string {
-  const model = formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
+  const model = sanitizeTerminalText(formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride));
 
   const rawPercent = getContextPercent(ctx.stdin);
   const bufferedPercent = getBufferedPercent(ctx.stdin);
@@ -45,7 +46,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
-  const customLine = display?.customLine;
+  const customLine = sanitizeTerminalText(display?.customLine);
   const customLinePosition = display?.customLinePosition ?? 'last';
   if (customLine && customLinePosition === 'first') {
     parts.push(customColor(customLine, colors));
@@ -56,9 +57,9 @@ export function renderSessionLine(ctx: RenderContext): string {
   const modelQualifier = providerLabel ?? undefined;
   let modelDisplay = modelQualifier ? `${model} | ${modelQualifier}` : model;
   if (ctx.effortLevel && ctx.effortSymbol) {
-    modelDisplay += ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
+    modelDisplay += ` ${sanitizeTerminalText(ctx.effortSymbol)} ${sanitizeTerminalText(ctx.effortLevel)}`;
   } else if (ctx.effortLevel) {
-    modelDisplay += ` ${ctx.effortLevel}`;
+    modelDisplay += ` ${sanitizeTerminalText(ctx.effortLevel)}`;
   }
 
   if (display?.showModel !== false && display?.showContextBar !== false) {
@@ -73,13 +74,14 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   // Project path + git status
   let projectPart: string | null = null;
-  if (display?.showProject !== false && ctx.stdin.cwd) {
+  const cwd = typeof ctx.stdin.cwd === 'string' ? ctx.stdin.cwd : '';
+  if (display?.showProject !== false && cwd) {
     // Split by both Unix (/) and Windows (\) separators for cross-platform support
-    const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
+    const segments = cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
     // Always join with forward slash for consistent display
     // Handle root path (/) which results in empty segments
-    const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
+    const projectPath = sanitizeTerminalText(segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/');
     projectPart = projectColor(projectPath, colors);
   }
 
@@ -89,7 +91,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   const branchOverflow = gitConfig?.branchOverflow ?? 'truncate';
 
   if (showGit && ctx.gitStatus) {
-    const gitParts: string[] = [ctx.gitStatus.branch];
+    const gitParts: string[] = [sanitizeTerminalText(ctx.gitStatus.branch)];
 
     // Show dirty indicator
     if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
@@ -137,7 +139,7 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   // Session name (custom title from /rename, or auto-generated slug)
   if (display?.showSessionName && ctx.transcript.sessionName) {
-    parts.push(label(ctx.transcript.sessionName, colors));
+    parts.push(label(sanitizeTerminalText(ctx.transcript.sessionName), colors));
   }
 
   if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {

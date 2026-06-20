@@ -292,6 +292,17 @@ test('mergeConfig preserves customLine and truncates long values', () => {
   assert.equal(config.display.customLine, customLine.slice(0, 80));
 });
 
+test('mergeConfig strips terminal controls from custom display text', () => {
+  const config = mergeConfig({
+    display: {
+      customLine: 'safe\x1b]52;c;U0VDUkVU\x07',
+      modelOverride: 'model\x1b[2J',
+    },
+  });
+  assert.equal(config.display.customLine, 'safe');
+  assert.equal(config.display.modelOverride, 'model');
+});
+
 test('mergeConfig defaults customLinePosition to last', () => {
   const config = mergeConfig({});
   assert.equal(config.display.customLinePosition, 'last');

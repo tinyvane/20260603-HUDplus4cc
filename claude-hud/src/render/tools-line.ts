@@ -1,10 +1,12 @@
 import type { RenderContext } from '../types.js';
 import { yellow, green, cyan, label } from './colors.js';
+import { sanitizeTerminalText } from '../utils/sanitize.js';
 
 const ELLIPSIS = '…';
 const MCP_TOOL_NAME_PATTERN = /^mcp__.+__.+$/;
 
 export function shortenToolName(name: string, maxLen: number): string {
+  name = sanitizeTerminalText(name);
   if (maxLen === 0) {
     return name;
   }
@@ -36,7 +38,7 @@ export function renderToolsLine(ctx: RenderContext): string | null {
   const completedTools = tools.filter((t) => t.status === 'completed' || t.status === 'error');
 
   for (const tool of runningTools.slice(-2)) {
-    const target = tool.target ? truncatePath(tool.target) : '';
+    const target = tool.target ? truncatePath(sanitizeTerminalText(tool.target)) : '';
     const name = shortenToolName(tool.name, toolNameMaxLength);
     parts.push(`${yellow('◐')} ${cyan(name)}${target ? label(`: ${target}`, colors) : ''}`);
   }

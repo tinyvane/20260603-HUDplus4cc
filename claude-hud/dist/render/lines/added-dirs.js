@@ -1,13 +1,9 @@
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { dim, label } from '../colors.js';
-const CONTROL_AND_BIDI_PATTERN = new RegExp('[' +
-    '\\u0000-\\u001F\\u007F-\\u009F' +
-    '\\u061C\\u200E\\u200F' +
-    '\\u202A-\\u202E\\u2066-\\u2069\\u206A-\\u206F' +
-    ']', 'g');
+import { sanitizeTerminalText } from '../../utils/sanitize.js';
 export function sanitize(value) {
-    return value.replace(CONTROL_AND_BIDI_PATTERN, '');
+    return sanitizeTerminalText(value);
 }
 export function basenameOf(dir) {
     const segments = dir.split(/[/\\]/).filter(Boolean);

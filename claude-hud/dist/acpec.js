@@ -4,7 +4,12 @@ import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { loadConfig } from './config.js';
-const defaultGit = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const defaultGit = (args, cwd) => execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 15_000,
+}).trim();
 function tryGit(git, args, cwd) {
     try {
         return { ok: true, out: git(args, cwd) };
@@ -59,7 +64,16 @@ export function runAcpec(opts) {
     if ((acpec.protectedBranches ?? []).includes(branch)) {
         return { action: 'skipped', reason: 'protected-branch', branch };
     }
-    // Stage only tracked modifications/deletions — never new untracked files.
+    // Never absorb a user's existing index state into an automatic commit.
+    // In particular, `git add -u` does not remove already-staged new files.
+    const stagedBefore = tryGit(git, ['diff', '--cached', '--name-only'], cwd);
+    if (!stagedBefore.ok) {
+        return { action: 'skipped', reason: 'staged-check-failed', branch };
+    }
+    if (stagedBefore.out.split('\n').some(Boolean)) {
+        return { action: 'skipped', reason: 'pre-existing-staged-changes', branch };
+    }
+    // Stage only tracked modifications/deletions.
     const add = tryGit(git, ['add', '-u'], cwd);
     if (!add.ok)
         return { action: 'skipped', reason: 'add-failed', branch };
@@ -92,6 +106,8 @@ const SKIP_REASONS = {
     'home-dir-repo': 'repository rooted at the home directory',
     'detached-head': 'detached HEAD',
     'protected-branch': 'protected branch',
+    'staged-check-failed': 'could not inspect staged changes',
+    'pre-existing-staged-changes': 'pre-existing staged changes',
     'add-failed': 'git add failed',
     'no-changes': 'no tracked changes',
     'commit-failed': 'git commit failed',

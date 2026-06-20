@@ -7,6 +7,7 @@ import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, 
 import { t } from '../../i18n/index.js';
 import { renderCostEstimate } from './cost.js';
 import { normalizeAddedDirs, sanitize as sanitizeDisplayText, basenameOf, truncateBasename, MAX_RENDERED_ADDED_DIRS } from './added-dirs.js';
+import { sanitizeTerminalText } from '../../utils/sanitize.js';
 function hyperlink(uri, text) {
     const esc = '\x1b';
     const st = '\\';
@@ -49,31 +50,32 @@ export function renderProjectLine(ctx) {
     const display = ctx.config?.display;
     const colors = ctx.config?.colors;
     const parts = [];
-    const customLine = display?.customLine;
+    const customLine = sanitizeTerminalText(display?.customLine);
     const customLinePosition = display?.customLinePosition ?? 'last';
     if (customLine && customLinePosition === 'first') {
         parts.push(customColor(customLine, colors));
     }
     if (display?.showModel !== false) {
-        const model = formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
+        const model = sanitizeTerminalText(formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride));
         const providerLabel = getProviderLabel(ctx.stdin);
         const modelQualifier = providerLabel ?? undefined;
         let modelDisplay = modelQualifier ? `${model} | ${modelQualifier}` : model;
         if (ctx.effortLevel && ctx.effortSymbol) {
-            modelDisplay += ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
+            modelDisplay += ` ${sanitizeTerminalText(ctx.effortSymbol)} ${sanitizeTerminalText(ctx.effortLevel)}`;
         }
         else if (ctx.effortLevel) {
-            modelDisplay += ` ${ctx.effortLevel}`;
+            modelDisplay += ` ${sanitizeTerminalText(ctx.effortLevel)}`;
         }
         parts.push(modelColor(`[${modelDisplay}]`, colors));
     }
     let projectPart = null;
-    if (display?.showProject !== false && ctx.stdin.cwd) {
-        const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
+    const cwd = typeof ctx.stdin.cwd === 'string' ? ctx.stdin.cwd : '';
+    if (display?.showProject !== false && cwd) {
+        const segments = cwd.split(/[/\\]/).filter(Boolean);
         const pathLevels = ctx.config?.pathLevels ?? 1;
         const projectPath = sanitizeDisplayText(segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/');
         const coloredProject = projectColor(projectPath, colors);
-        projectPart = safeHyperlink(getFileHref(ctx.stdin.cwd), coloredProject);
+        projectPart = safeHyperlink(getFileHref(cwd), coloredProject);
     }
     let addedDirsPart = null;
     const addedDirs = normalizeAddedDirs(ctx.stdin.workspace?.added_dirs);
@@ -139,7 +141,7 @@ export function renderProjectLine(ctx) {
         parts.push(gitPart);
     }
     if (display?.showSessionName && ctx.transcript.sessionName) {
-        parts.push(label(ctx.transcript.sessionName, colors));
+        parts.push(label(sanitizeTerminalText(ctx.transcript.sessionName), colors));
     }
     if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
         parts.push(label(`CC v${ctx.claudeCodeVersion}`, colors));
@@ -191,7 +193,7 @@ export function renderGitFilesLine(ctx, terminalWidth = null) {
         return null;
     if (terminalWidth !== null && terminalWidth < 60)
         return null;
-    const cwd = ctx.stdin.cwd;
+    const cwd = typeof ctx.stdin.cwd === 'string' ? ctx.stdin.cwd : undefined;
     const sorted = [...trackedFiles].sort((a, b) => {
         try {
             const aPath = cwd ? resolvePathWithinCwd(cwd, a.fullPath) : null;

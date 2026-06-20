@@ -52,17 +52,45 @@ export async function main(overrides = {}) {
             }
             return;
         }
-        const transcriptPath = stdin.transcript_path ?? "";
-        const transcript = await deps.parseTranscript(transcriptPath);
+        const config = await deps.loadConfig();
+        setLanguage(config.language);
+        const display = config.display;
+        const transcriptPath = typeof stdin.transcript_path === "string" ? stdin.transcript_path : "";
+        const usage = stdin.context_window?.current_usage;
+        const mayNeedCompactHint = Boolean(stdin.context_window
+            && (stdin.context_window.used_percentage ?? 0) === 0
+            && (usage?.input_tokens ?? 0) === 0
+            && (usage?.output_tokens ?? 0) === 0
+            && (usage?.cache_creation_input_tokens ?? 0) === 0
+            && (usage?.cache_read_input_tokens ?? 0) === 0);
+        const needsTranscript = mayNeedCompactHint || Boolean(display.showTools
+            || display.showAgents
+            || display.showTodos
+            || display.showSessionName
+            || display.showDuration
+            || display.showCost
+            || display.showPromptCache
+            || display.showSessionTokens
+            || display.showSessionStartDate
+            || display.showLastResponseAt);
+        const transcript = needsTranscript
+            ? await deps.parseTranscript(transcriptPath)
+            : { tools: [], agents: [], todos: [] };
         deps.applyContextWindowFallback(stdin, {}, transcript.sessionName, {
             lastCompactBoundaryAt: transcript.lastCompactBoundaryAt,
             lastCompactPostTokens: transcript.lastCompactPostTokens,
         });
-        const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle } = await deps.countConfigs(stdin.cwd);
-        const config = await deps.loadConfig();
-        setLanguage(config.language);
+        const needsConfigCounts = display.showConfigCounts || display.showOutputStyle;
+        const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle } = needsConfigCounts
+            ? await deps.countConfigs(typeof stdin.cwd === "string" ? stdin.cwd : undefined)
+            : { claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0, outputStyle: undefined };
         const gitStatus = config.gitStatus.enabled
-            ? await deps.getGitStatus(stdin.cwd, { timeoutMs: config.gitStatus.commandTimeoutMs })
+            ? await deps.getGitStatus(typeof stdin.cwd === "string" ? stdin.cwd : undefined, {
+                timeoutMs: config.gitStatus.commandTimeoutMs,
+                showAheadBehind: config.gitStatus.showAheadBehind,
+                showFileStats: config.gitStatus.showFileStats,
+                includeBranchUrl: true,
+            })
             : null;
         let usageData = null;
         const shouldReadUsage = config.display.showUsage !== false;

@@ -395,7 +395,7 @@ Enable `display.showChats` to see how many Claude Code sessions (`.jsonl` transc
 
 ### Backup & recover chats
 
-- `/claude-hud:backup-chats` — copies the current project's session transcripts into the archive directory (`chatArchive.path`) and shows a side-by-side local-vs-archive comparison table.
+- `/claude-hud:backup-chats` — copies the current project's session transcripts into the archive directory (`chatArchive.path`) and shows a side-by-side local-vs-archive comparison table. An archive is updated only when the local transcript strictly appends to it; truncated or divergent local copies are preserved under `.conflicts/`.
 - `/claude-hud:recover-chats` — restores sessions that are **missing** locally from the archive. It never overwrites existing files. Pass `--all` to recover across all projects.
 
 ### ACPEC — Auto Commit & Push Every Conversation
@@ -405,6 +405,7 @@ Enable `display.showChats` to see how many Claude Code sessions (`.jsonl` transc
 Safety contract:
 
 - Only **tracked** changes are committed — new untracked files are never added.
+- If the repository already has staged changes, ACPEC stops without committing so it cannot absorb the user's index state.
 - Never force-pushes; pushes the current branch only.
 - Skips non-repos, detached HEADs, branches listed in `acpec.protectedBranches`, and repos rooted at your home directory.
 - `on` runs a `.gitignore` safety gate first: it scans for already-tracked secrets and ensures sensitive baseline patterns (`.env`, `*.key`, `*secret*`, …) are ignored before enabling.

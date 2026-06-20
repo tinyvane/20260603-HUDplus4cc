@@ -947,6 +947,24 @@ test('renderToolsLine renders running and completed tools', () => {
   assert.ok(line?.includes('.../authentication.ts'));
 });
 
+test('render activity lines strip terminal control sequences from transcript text', () => {
+  const ctx = baseContext();
+  const osc52 = '\x1b]52;c;U0VDUkVU\x07';
+  ctx.transcript.tools = [
+    { id: 'tool-1', name: `Read${osc52}`, target: `/tmp/${osc52}safe.ts`, status: 'running', startTime: new Date(0) },
+  ];
+  ctx.transcript.agents = [
+    { id: 'agent-1', type: `explore${osc52}`, description: `desc${osc52}`, status: 'running', startTime: new Date(0) },
+  ];
+  ctx.transcript.todos = [{ content: `todo${osc52}`, status: 'in_progress' }];
+
+  const output = [renderToolsLine(ctx), renderAgentsLine(ctx), renderTodosLine(ctx)].join('\n');
+  assert.ok(!output.includes('\x1b]52;'));
+  assert.match(stripAnsi(output), /safe\.ts/);
+  assert.match(stripAnsi(output), /desc/);
+  assert.match(stripAnsi(output), /todo/);
+});
+
 test('renderToolsLine keeps default tool cap and full names', () => {
   const ctx = baseContext();
   ctx.transcript.tools = [

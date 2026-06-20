@@ -3,6 +3,7 @@ import * as path from 'path';
 import { createHash } from 'node:crypto';
 import { createDebug } from './debug.js';
 import { getClaudeConfigDir, getClaudeConfigJsonPath, getHomeDir, getHudPluginDir } from './claude-config-dir.js';
+import { atomicWriteFileSync, sweepCacheDirSync } from './utils/cache.js';
 
 const debug = createDebug('config');
 
@@ -277,9 +278,12 @@ function readConfigCache(cacheKey: Pick<ConfigCacheKey, 'cwd' | 'claudeConfigDir
 function writeConfigCache(key: ConfigCacheKey, data: ConfigCounts, homeDir: string): void {
   try {
     const cachePath = getConfigCachePath(key.cwd, key.claudeConfigDir, homeDir);
-    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     const payload: ConfigCacheFile = { key, data };
-    fs.writeFileSync(cachePath, JSON.stringify(payload), 'utf8');
+    atomicWriteFileSync(cachePath, JSON.stringify(payload));
+    sweepCacheDirSync(path.dirname(cachePath), {
+      maxAgeMs: 30 * 24 * 60 * 60 * 1000,
+      maxEntries: 100,
+    });
   } catch {
     // Cache write failures are non-fatal.
   }

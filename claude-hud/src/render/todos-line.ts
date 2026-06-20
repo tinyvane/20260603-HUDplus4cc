@@ -1,6 +1,7 @@
 import type { RenderContext } from "../types.js";
 import { yellow, green, label } from "./colors.js";
 import { t } from "../i18n/index.js";
+import { sanitizeTerminalText } from "../utils/sanitize.js";
 
 export function renderTodosLine(ctx: RenderContext): string | null {
   const { todos } = ctx.transcript;
@@ -28,7 +29,8 @@ export function renderTodosLine(ctx: RenderContext): string | null {
 }
 
 function truncateContent(content: string | null | undefined, maxLen: number = 50): string {
-  if (!content) return "";
-  if (content.length <= maxLen) return content;
-  return content.slice(0, maxLen - 3) + "...";
+  const sanitized = sanitizeTerminalText(content);
+  if (!sanitized) return "";
+  if (sanitized.length <= maxLen) return sanitized;
+  return sanitized.slice(0, maxLen - 3) + "...";
 }

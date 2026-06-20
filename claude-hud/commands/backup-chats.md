@@ -6,9 +6,11 @@ allowed-tools: Bash, Read, Write, AskUserQuestion
 # Back up Claude conversations
 
 Copies the current project's conversation transcripts (`*.jsonl`) into a
-configurable archive folder. Backups are **non-destructive**: existing archive
-files are refreshed, never deleted — so a session lost locally stays
-recoverable. Pair this with `/claude-hud:recover-chats` to restore.
+configurable archive folder. Backups are **non-destructive**: an existing archive
+is refreshed only when the local transcript strictly appends to it, and truncated
+or divergent local files are preserved under `.conflicts/`. Archive files are
+never deleted, so a session lost locally stays recoverable. Pair this with
+`/claude-hud:recover-chats` to restore.
 
 Substitute the detected values for `{CLAUDE_DIR}`, `{PLUGIN_DIR}`, `{NODE}`,
 `{CONFIG_PATH}`, and `{ARCHIVE_PATH}` as you go.

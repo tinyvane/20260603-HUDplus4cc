@@ -8,13 +8,14 @@ import { renderPromptCacheLine } from './lines/prompt-cache.js';
 import { renderSessionTimeLine } from './lines/session-time.js';
 import { t } from '../i18n/index.js';
 import { formatResetTime } from './format-reset-time.js';
+import { sanitizeTerminalText } from '../utils/sanitize.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 /**
  * Renders the full session line (model + context bar + project + git + counts + usage + duration).
  * Used for compact layout mode.
  */
 export function renderSessionLine(ctx) {
-    const model = formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
+    const model = sanitizeTerminalText(formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride));
     const rawPercent = getContextPercent(ctx.stdin);
     const bufferedPercent = getBufferedPercent(ctx.stdin);
     const autocompactMode = ctx.config?.display?.autocompactBuffer ?? 'enabled';
@@ -36,7 +37,7 @@ export function renderSessionLine(ctx) {
     const contextValueMode = display?.contextValue ?? 'percent';
     const contextValue = formatContextValue(ctx, percent, contextValueMode);
     const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
-    const customLine = display?.customLine;
+    const customLine = sanitizeTerminalText(display?.customLine);
     const customLinePosition = display?.customLinePosition ?? 'last';
     if (customLine && customLinePosition === 'first') {
         parts.push(customColor(customLine, colors));
@@ -46,10 +47,10 @@ export function renderSessionLine(ctx) {
     const modelQualifier = providerLabel ?? undefined;
     let modelDisplay = modelQualifier ? `${model} | ${modelQualifier}` : model;
     if (ctx.effortLevel && ctx.effortSymbol) {
-        modelDisplay += ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
+        modelDisplay += ` ${sanitizeTerminalText(ctx.effortSymbol)} ${sanitizeTerminalText(ctx.effortLevel)}`;
     }
     else if (ctx.effortLevel) {
-        modelDisplay += ` ${ctx.effortLevel}`;
+        modelDisplay += ` ${sanitizeTerminalText(ctx.effortLevel)}`;
     }
     if (display?.showModel !== false && display?.showContextBar !== false) {
         parts.push(`${modelColor(`[${modelDisplay}]`, colors)} ${bar} ${contextValueDisplay}`);
@@ -65,13 +66,14 @@ export function renderSessionLine(ctx) {
     }
     // Project path + git status
     let projectPart = null;
-    if (display?.showProject !== false && ctx.stdin.cwd) {
+    const cwd = typeof ctx.stdin.cwd === 'string' ? ctx.stdin.cwd : '';
+    if (display?.showProject !== false && cwd) {
         // Split by both Unix (/) and Windows (\) separators for cross-platform support
-        const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
+        const segments = cwd.split(/[/\\]/).filter(Boolean);
         const pathLevels = ctx.config?.pathLevels ?? 1;
         // Always join with forward slash for consistent display
         // Handle root path (/) which results in empty segments
-        const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
+        const projectPath = sanitizeTerminalText(segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/');
         projectPart = projectColor(projectPath, colors);
     }
     let gitPart = '';
@@ -79,7 +81,7 @@ export function renderSessionLine(ctx) {
     const showGit = gitConfig?.enabled ?? true;
     const branchOverflow = gitConfig?.branchOverflow ?? 'truncate';
     if (showGit && ctx.gitStatus) {
-        const gitParts = [ctx.gitStatus.branch];
+        const gitParts = [sanitizeTerminalText(ctx.gitStatus.branch)];
         // Show dirty indicator
         if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
             gitParts.push('*');
@@ -128,7 +130,7 @@ export function renderSessionLine(ctx) {
     }
     // Session name (custom title from /rename, or auto-generated slug)
     if (display?.showSessionName && ctx.transcript.sessionName) {
-        parts.push(label(ctx.transcript.sessionName, colors));
+        parts.push(label(sanitizeTerminalText(ctx.transcript.sessionName), colors));
     }
     if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
         parts.push(label(`CC v${ctx.claudeCodeVersion}`, colors));

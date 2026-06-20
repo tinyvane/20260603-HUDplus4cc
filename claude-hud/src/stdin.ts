@@ -210,12 +210,14 @@ const ENTERPRISE_ALIAS_LABELS: Record<string, string> = {
 };
 
 export function getModelName(stdin: StdinData): string {
-  const displayName = stdin.model?.display_name?.trim();
+  const displayName = typeof stdin.model?.display_name === 'string'
+    ? stdin.model.display_name.trim()
+    : '';
   if (displayName) {
     return displayName;
   }
 
-  const modelId = stdin.model?.id?.trim();
+  const modelId = typeof stdin.model?.id === 'string' ? stdin.model.id.trim() : '';
   if (!modelId) {
     return 'Unknown';
   }

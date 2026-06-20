@@ -5,6 +5,8 @@ import * as readline from 'readline';
 import { createHash } from 'node:crypto';
 import { getHudPluginDir } from './claude-config-dir.js';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoItem, SessionTokenUsage } from './types.js';
+import { sanitizeTerminalText } from './utils/sanitize.js';
+import { atomicWriteFileSync, sweepCacheDirSync } from './utils/cache.js';
 
 interface TranscriptLine {
   timestamp?: string;
@@ -74,7 +76,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 5;
+const TRANSCRIPT_CACHE_VERSION = 6;
 
 let createReadStreamImpl: typeof fs.createReadStream = fs.createReadStream;
 
@@ -197,14 +199,19 @@ function readTranscriptCache(transcriptPath: string, state: TranscriptFileState)
 function writeTranscriptCache(transcriptPath: string, state: TranscriptFileState, data: TranscriptData): void {
   try {
     const cachePath = getTranscriptCachePath(transcriptPath, os.homedir());
-    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     const payload: TranscriptCacheFile = {
       version: TRANSCRIPT_CACHE_VERSION,
       transcriptPath: path.resolve(transcriptPath),
       transcriptState: state,
       data: serializeTranscriptData(data),
     };
-    fs.writeFileSync(cachePath, JSON.stringify(payload), { encoding: 'utf8', mode: 0o600 });
+    atomicWriteFileSync(cachePath, JSON.stringify(payload));
+    if (Math.random() < 0.05) {
+      sweepCacheDirSync(path.dirname(cachePath), {
+        maxAgeMs: 30 * 24 * 60 * 60 * 1000,
+        maxEntries: 200,
+      });
+    }
   } catch {
     // Cache failures are non-fatal; fall back to fresh parsing next time.
   }
@@ -271,9 +278,9 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
       try {
         const entry = JSON.parse(line) as TranscriptLine;
         if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
-          customTitle = entry.customTitle;
+          customTitle = sanitizeTerminalText(entry.customTitle, 200);
         } else if (typeof entry.slug === 'string') {
-          latestSlug = entry.slug;
+          latestSlug = sanitizeTerminalText(entry.slug, 200);
         }
         // Accumulate token usage from assistant messages.
         // Claude Code can write the same API response to the transcript 2-3 times
@@ -387,31 +394,47 @@ function processEntry(
   const content = entry.message?.content;
   if (!content || !Array.isArray(content)) return;
 
-  for (const block of content) {
-    if (block.type === 'tool_use' && block.id && block.name) {
+  for (const rawBlock of content) {
+    if (!rawBlock || typeof rawBlock !== 'object' || Array.isArray(rawBlock)) {
+      continue;
+    }
+    const block = rawBlock as ContentBlock;
+
+    if (
+      block.type === 'tool_use'
+      && typeof block.id === 'string'
+      && block.id.length > 0
+      && typeof block.name === 'string'
+      && block.name.length > 0
+    ) {
+      const input = block.input && typeof block.input === 'object' && !Array.isArray(block.input)
+        ? block.input
+        : undefined;
       const toolEntry: ToolEntry = {
         id: block.id,
-        name: block.name,
-        target: extractTarget(block.name, block.input),
+        name: sanitizeTerminalText(block.name, 200),
+        target: extractTarget(block.name, input),
         status: 'running',
         startTime: timestamp,
       };
 
       if (block.name === 'Task' || block.name === 'Agent') {
-        const input = block.input as Record<string, unknown>;
+        const agentType = typeof input?.subagent_type === 'string' ? input.subagent_type : 'agent';
+        const model = typeof input?.model === 'string' ? input.model : undefined;
+        const description = typeof input?.description === 'string' ? input.description : undefined;
         const agentEntry: AgentEntry = {
           id: block.id,
-          type: (input?.subagent_type as string) ?? 'agent',
-          model: (input?.model as string) ?? undefined,
-          description: (input?.description as string) ?? undefined,
+          type: sanitizeTerminalText(agentType, 100),
+          model: model ? sanitizeTerminalText(model, 100) : undefined,
+          description: description ? sanitizeTerminalText(description, 500) : undefined,
           status: 'running',
           startTime: timestamp,
           background: (input?.run_in_background as boolean) === true,
         };
         agentMap.set(block.id, agentEntry);
       } else if (block.name === 'TodoWrite') {
-        const input = block.input as { todos?: TodoItem[] };
-        if (input?.todos && Array.isArray(input.todos)) {
+        const todos = normalizeTodoItems(input?.todos);
+        if (todos) {
           // Build a FIFO queue of taskIds per content string, ordered by the
           // old array position. Two todos that share the same content must
           // each get their own taskId back after the rebuild, so we cannot
@@ -433,7 +456,7 @@ function processEntry(
 
           latestTodos.length = 0;
           taskIdToIndex.clear();
-          latestTodos.push(...input.todos);
+          latestTodos.push(...todos);
 
           // Consume one queued taskId per new todo that matches by content,
           // so duplicate-content items still each get their own taskId.
@@ -449,10 +472,9 @@ function processEntry(
           }
         }
       } else if (block.name === 'TaskCreate') {
-        const input = block.input as Record<string, unknown>;
         const subject = typeof input?.subject === 'string' ? input.subject : '';
         const description = typeof input?.description === 'string' ? input.description : '';
-        const content = subject || description || 'Untitled task';
+        const content = sanitizeTerminalText(subject || description || 'Untitled task', 500);
         const status = normalizeTaskStatus(input?.status) ?? 'pending';
         latestTodos.push({ content, status });
 
@@ -464,7 +486,6 @@ function processEntry(
           taskIdToIndex.set(taskId, latestTodos.length - 1);
         }
       } else if (block.name === 'TaskUpdate') {
-        const input = block.input as Record<string, unknown>;
         const index = resolveTaskIndex(input?.taskId, taskIdToIndex, latestTodos);
         if (index !== null) {
           const status = normalizeTaskStatus(input?.status);
@@ -476,7 +497,7 @@ function processEntry(
           const description = typeof input?.description === 'string' ? input.description : '';
           const content = subject || description;
           if (content) {
-            latestTodos[index].content = content;
+            latestTodos[index].content = sanitizeTerminalText(content, 500);
           }
         }
       } else {
@@ -484,7 +505,7 @@ function processEntry(
       }
     }
 
-    if (block.type === 'tool_result' && block.tool_use_id) {
+    if (block.type === 'tool_result' && typeof block.tool_use_id === 'string' && block.tool_use_id) {
       const tool = toolMap.get(block.tool_use_id);
       if (tool) {
         tool.status = block.is_error ? 'error' : 'completed';
@@ -502,24 +523,48 @@ function processEntry(
 function extractTarget(toolName: string, input?: Record<string, unknown>): string | undefined {
   if (!input) return undefined;
 
+  const stringValue = (value: unknown): string | undefined =>
+    typeof value === 'string' ? sanitizeTerminalText(value, 500) : undefined;
+
   switch (toolName) {
     case 'Read':
     case 'Write':
     case 'Edit':
-      return (input.file_path as string) ?? (input.path as string);
+      return stringValue(input.file_path) ?? stringValue(input.path);
     case 'Glob':
-      return input.pattern as string;
+      return stringValue(input.pattern);
     case 'Grep':
-      return input.pattern as string;
+      return stringValue(input.pattern);
     case 'Skill':
       return typeof input.skill === 'string' && input.skill.trim().length > 0
-        ? input.skill
+        ? sanitizeTerminalText(input.skill, 500)
         : undefined;
     case 'Bash':
-      const cmd = input.command as string;
-      return cmd?.slice(0, 30) + (cmd?.length > 30 ? '...' : '');
+      const cmd = stringValue(input.command);
+      return cmd ? cmd.slice(0, 30) + (cmd.length > 30 ? '...' : '') : undefined;
   }
   return undefined;
+}
+
+function normalizeTodoItems(value: unknown): TodoItem[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const todos: TodoItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      continue;
+    }
+    const raw = item as Record<string, unknown>;
+    if (typeof raw.content !== 'string') {
+      continue;
+    }
+    const content = sanitizeTerminalText(raw.content, 500);
+    const status = normalizeTaskStatus(raw.status) ?? 'pending';
+    todos.push({ content, status });
+  }
+  return todos;
 }
 
 function resolveTaskIndex(

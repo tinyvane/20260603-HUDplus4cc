@@ -2,6 +2,23 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [0.4.1] - 2026-06-20
+
+### Security
+- Sanitize all transcript, model, project-config, tool, agent, and todo text before terminal rendering.
+- Refuse ACPEC auto-commits when the repository already has staged changes.
+
+### Fixed
+- Preserve divergent or truncated local chat transcripts under `.conflicts/` instead of overwriting a more complete archive.
+- Write chat archives and runtime caches through atomic temp-file replacements.
+- Bound transcript, speed, and config cache growth with age and entry limits.
+- Clean `dist/` before every build and verify release versions and generated module contents.
+- Move GitHub workflows and Dependabot configuration to the repository root so GitHub executes them.
+
+### Changed
+- Skip hidden config/transcript work and optional Git queries when their display features are disabled.
+- Cache marketplace version scans for 60 seconds and expand CI coverage through Node.js 24.
+
 ## [0.3.0] - 2026-06-12
 
 ### Added

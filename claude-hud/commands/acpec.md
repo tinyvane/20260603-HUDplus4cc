@@ -12,6 +12,7 @@ branch of the project you were working in. It is **disabled by default** and
 
 Safety contract (do not weaken):
 - Only tracked changes are committed — never new untracked files (`git add -u`).
+- If the index already contains staged changes, stop without committing.
 - Never force-push. Skips non-repos, detached HEADs, and protected branches.
 - Refuses repos rooted at the user's home directory (a stray `git init` in
   `$HOME` must never auto-commit personal files).
@@ -158,7 +159,8 @@ settings). Use a real JSON serializer and back up settings.json first.
 
 Tell the user ACPEC is enabled: when a conversation ends, tracked changes are
 committed and pushed on the current branch (never main/master if they added it
-to `acpec.protectedBranches`; never force; untracked files are never committed).
+to `acpec.protectedBranches`; never force; untracked files are never committed;
+pre-existing staged changes cause a safe skip).
 Note that it takes effect on the **next** session end, and that the change is
 visible in `settings.json` (`hooks.SessionEnd`).
 

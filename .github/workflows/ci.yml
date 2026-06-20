@@ -5,19 +5,25 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'dist/**'
+      - 'claude-hud/dist/**'
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [18.x, 20.x, 22.x, 24.x]
+    defaults:
+      run:
+        working-directory: claude-hud
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+          cache-dependency-path: claude-hud/package-lock.json
       - run: npm ci
       - run: npm run test:coverage
+      - run: npm run verify:release
+      - run: git diff --exit-code -- dist

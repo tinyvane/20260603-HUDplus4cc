@@ -113,6 +113,45 @@ test('backupChats never deletes archive-only files (lost session stays backed up
   }
 });
 
+test('backupChats preserves a truncated local transcript as a conflict', async () => {
+  const env = await setup();
+  try {
+    const cwd = '/work/app';
+    await seedProject(env.home, cwd, { 'a.jsonl': 'complete-history\n' });
+    backupChats({ mode: 'backup', archivePath: env.archive, cwd }, env.home);
+
+    await writeFile(path.join(projectDir(env.home, cwd), 'a.jsonl'), 'short\n');
+    const result = backupChats({ mode: 'backup', archivePath: env.archive, cwd }, env.home);
+
+    assert.equal(result.copied, 0);
+    assert.equal(result.conflicts, 1);
+    assert.equal(await readFile(path.join(env.archive, encodeProjectDir(cwd), 'a.jsonl'), 'utf8'), 'complete-history\n');
+    const conflictDir = path.join(env.archive, '.conflicts', encodeProjectDir(cwd));
+    const conflicts = await readdir(conflictDir);
+    assert.equal(conflicts.length, 1);
+    assert.equal(await readFile(path.join(conflictDir, conflicts[0]), 'utf8'), 'short\n');
+  } finally {
+    await teardown(env);
+  }
+});
+
+test('backupChats only replaces an archive when the local transcript appends to it', async () => {
+  const env = await setup();
+  try {
+    const cwd = '/work/app';
+    await seedProject(env.home, cwd, { 'a.jsonl': 'first\n' });
+    backupChats({ mode: 'backup', archivePath: env.archive, cwd }, env.home);
+    await writeFile(path.join(projectDir(env.home, cwd), 'a.jsonl'), 'first\nsecond\n');
+
+    const result = backupChats({ mode: 'backup', archivePath: env.archive, cwd }, env.home);
+    assert.equal(result.copied, 1);
+    assert.equal(result.conflicts, 0);
+    assert.equal(await readFile(path.join(env.archive, encodeProjectDir(cwd), 'a.jsonl'), 'utf8'), 'first\nsecond\n');
+  } finally {
+    await teardown(env);
+  }
+});
+
 // --- recover ----------------------------------------------------------------
 
 test('recoverChats restores only missing sessions and never overwrites local ones', async () => {

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/tinyvane/20260603-HUDplus4cc/security/advisories/new
+    about: Please report security vulnerabilities privately.

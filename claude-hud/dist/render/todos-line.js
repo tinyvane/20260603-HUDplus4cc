@@ -1,5 +1,6 @@
 import { yellow, green, label } from "./colors.js";
 import { t } from "../i18n/index.js";
+import { sanitizeTerminalText } from "../utils/sanitize.js";
 export function renderTodosLine(ctx) {
     const { todos } = ctx.transcript;
     const colors = ctx.config?.colors;
@@ -20,10 +21,11 @@ export function renderTodosLine(ctx) {
     return `${yellow("▸")} ${content} ${progress}`;
 }
 function truncateContent(content, maxLen = 50) {
-    if (!content)
+    const sanitized = sanitizeTerminalText(content);
+    if (!sanitized)
         return "";
-    if (content.length <= maxLen)
-        return content;
-    return content.slice(0, maxLen - 3) + "...";
+    if (sanitized.length <= maxLen)
+        return sanitized;
+    return sanitized.slice(0, maxLen - 3) + "...";
 }
 //# sourceMappingURL=todos-line.js.map

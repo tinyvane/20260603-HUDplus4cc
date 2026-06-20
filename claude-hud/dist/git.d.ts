@@ -32,6 +32,9 @@ export interface GitCommandOptions {
      * it via `gitStatus.commandTimeoutMs`.
      */
     timeoutMs?: number;
+    showAheadBehind?: boolean;
+    showFileStats?: boolean;
+    includeBranchUrl?: boolean;
 }
 export interface SubmoduleConfig {
     /** Number of gitlink entries (mode 160000) — nested git repos / submodules. */

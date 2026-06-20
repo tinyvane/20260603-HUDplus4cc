@@ -194,7 +194,9 @@ test("main executes the happy path", async () => {
       readStdin: async () => makeStdin(),
       parseTranscript: async () => makeTranscript({ sessionStart: new Date(0) }),
       countConfigs: async () => makeCounts({ outputStyle: "tech-leader" }),
-      loadConfig: async () => makeConfig(),
+      loadConfig: async () => makeConfig({
+        display: { showDuration: true, showOutputStyle: true },
+      }),
       getGitStatus: async () => null,
       render: (ctx) => {
         renderedContext = ctx;
@@ -208,8 +210,40 @@ test("main executes the happy path", async () => {
   assert.equal(renderedContext?.outputStyle, "tech-leader");
 });
 
+test("main skips hidden transcript/config work and optional git queries", async () => {
+  let parseCalls = 0;
+  let countCalls = 0;
+  let gitOptions;
+
+  await main({
+    readStdin: async () => makeStdin(),
+    parseTranscript: async () => {
+      parseCalls += 1;
+      return makeTranscript();
+    },
+    countConfigs: async () => {
+      countCalls += 1;
+      return makeCounts();
+    },
+    loadConfig: async () => makeConfig({ display: { showVersion: false } }),
+    getGitStatus: async (_cwd, options) => {
+      gitOptions = options;
+      return null;
+    },
+    render: () => {},
+  });
+
+  assert.equal(parseCalls, 0);
+  assert.equal(countCalls, 0);
+  assert.equal(gitOptions?.showAheadBehind, false);
+  assert.equal(gitOptions?.showFileStats, false);
+});
+
 test("main passes compact transcript metadata to context fallback", async () => {
-  const stdin = makeStdin({ transcript_path: "/tmp/session.jsonl" });
+  const stdin = makeStdin({
+    transcript_path: "/tmp/session.jsonl",
+    context_window: { used_percentage: 0, current_usage: { input_tokens: 0 } },
+  });
   const boundary = new Date("2026-04-24T03:00:00.000Z");
   let fallbackArgs;
 

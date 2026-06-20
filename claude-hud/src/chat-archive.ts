@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
 import { getClaudeConfigDir, getHomeDir } from './claude-config-dir.js';
 import { encodeProjectDir, resolveChatDir } from './chat-stats.js';
 
@@ -11,6 +12,7 @@ export interface ArchiveProjectResult {
   project: string;
   copied: string[];
   skipped: string[];
+  conflicts: string[];
 }
 
 export interface ArchiveResult {
@@ -19,6 +21,7 @@ export interface ArchiveResult {
   projects: number;
   copied: number;
   skipped: number;
+  conflicts: number;
   details: ArchiveProjectResult[];
 }
 
@@ -45,7 +48,7 @@ function listSubdirs(dir: string): string[] {
   try {
     return fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
       .map((entry) => entry.name);
   } catch {
     return [];
@@ -56,34 +59,87 @@ function projectsRoot(homeDir: string): string {
   return path.join(getClaudeConfigDir(homeDir), 'projects');
 }
 
-/** Copy src -> dest, creating parent dirs and preserving mtime for idempotency. */
+/** Copy src -> dest through a sibling temp file, preserving mtime. */
 function copyPreservingMtime(src: string, dest: string): void {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(src, dest);
+  const tmp = path.join(path.dirname(dest), `.${path.basename(dest)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
   try {
+    fs.copyFileSync(src, tmp);
     const stat = fs.statSync(src);
-    fs.utimesSync(dest, stat.atime, stat.mtime);
+    fs.utimesSync(tmp, stat.atime, stat.mtime);
+    fs.renameSync(tmp, dest);
   } catch {
-    // mtime preservation is best-effort.
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      // Preserve the original copy error.
+    }
+    throw new Error(`Failed to copy transcript ${src} to ${dest}`);
   }
 }
 
-/**
- * True when src should be (re)copied to dest during backup.
- *
- * Copies when the archive copy is missing, a different size (a transcript that
- * grew), or meaningfully newer. A 2s mtime tolerance absorbs filesystem
- * timestamp-precision loss from utimes so unchanged files are reliably skipped
- * on repeat backups instead of being copied every run.
- */
-function needsCopy(src: string, dest: string): boolean {
+type BackupDecision = 'copy' | 'skip' | 'conflict';
+
+function filePrefixMatches(prefixPath: string, fullPath: string, bytes: number): boolean {
+  const prefixFd = fs.openSync(prefixPath, 'r');
+  const fullFd = fs.openSync(fullPath, 'r');
+  const prefixBuffer = Buffer.allocUnsafe(64 * 1024);
+  const fullBuffer = Buffer.allocUnsafe(64 * 1024);
+  let offset = 0;
+
   try {
-    const s = fs.statSync(src);
-    const d = fs.statSync(dest);
-    if (s.size !== d.size) return true;
-    return s.mtimeMs > d.mtimeMs + 2000;
-  } catch {
-    return true; // dest missing
+    while (offset < bytes) {
+      const length = Math.min(prefixBuffer.length, bytes - offset);
+      const prefixRead = fs.readSync(prefixFd, prefixBuffer, 0, length, offset);
+      const fullRead = fs.readSync(fullFd, fullBuffer, 0, length, offset);
+      if (prefixRead !== fullRead || !prefixBuffer.subarray(0, prefixRead).equals(fullBuffer.subarray(0, fullRead))) {
+        return false;
+      }
+      if (prefixRead === 0) return offset === bytes;
+      offset += prefixRead;
+    }
+    return true;
+  } finally {
+    fs.closeSync(prefixFd);
+    fs.closeSync(fullFd);
+  }
+}
+
+/** Only replace an archive when the local transcript strictly extends it. */
+function backupDecision(src: string, dest: string): BackupDecision {
+  if (!fs.existsSync(dest)) return 'copy';
+  const source = fs.statSync(src);
+  const archived = fs.statSync(dest);
+
+  if (source.size < archived.size) return 'conflict';
+  if (source.size === archived.size) {
+    return filePrefixMatches(dest, src, archived.size) ? 'skip' : 'conflict';
+  }
+  return filePrefixMatches(dest, src, archived.size) ? 'copy' : 'conflict';
+}
+
+function hashFile(filePath: string): string {
+  const hash = createHash('sha256');
+  const fd = fs.openSync(filePath, 'r');
+  const buffer = Buffer.allocUnsafe(64 * 1024);
+  try {
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+    } while (bytesRead > 0);
+  } finally {
+    fs.closeSync(fd);
+  }
+  return hash.digest('hex').slice(0, 12);
+}
+
+function preserveConflict(src: string, archivePath: string, project: string, name: string): void {
+  const parsed = path.parse(name);
+  const conflictName = `${parsed.name}.local-${hashFile(src)}${parsed.ext}`;
+  const conflictPath = path.join(archivePath, '.conflicts', project, conflictName);
+  if (!fs.existsSync(conflictPath)) {
+    copyPreservingMtime(src, conflictPath);
   }
 }
 
@@ -113,20 +169,25 @@ export function backupChats(opts: ArchiveOptions, homeDir = getHomeDir()): Archi
     const destDir = path.join(opts.archivePath, project);
     const copied: string[] = [];
     const skipped: string[] = [];
+    const conflicts: string[] = [];
 
     for (const name of listJsonl(sourceDir)) {
       const src = path.join(sourceDir, name);
       const dest = path.join(destDir, name);
-      if (needsCopy(src, dest)) {
+      const decision = backupDecision(src, dest);
+      if (decision === 'copy') {
         copyPreservingMtime(src, dest);
         copied.push(name);
-      } else {
+      } else if (decision === 'skip') {
         skipped.push(name);
+      } else {
+        preserveConflict(src, opts.archivePath, project, name);
+        conflicts.push(name);
       }
     }
 
-    if (copied.length > 0 || skipped.length > 0) {
-      details.push({ project, copied, skipped });
+    if (copied.length > 0 || skipped.length > 0 || conflicts.length > 0) {
+      details.push({ project, copied, skipped, conflicts });
     }
   }
 
@@ -153,6 +214,7 @@ export function recoverChats(opts: ArchiveOptions, homeDir = getHomeDir()): Arch
     const localExisting = new Set(listJsonl(localDir));
     const copied: string[] = [];
     const skipped: string[] = [];
+    const conflicts: string[] = [];
 
     for (const name of listJsonl(archiveDir)) {
       if (localExisting.has(name)) {
@@ -164,7 +226,7 @@ export function recoverChats(opts: ArchiveOptions, homeDir = getHomeDir()): Arch
     }
 
     if (copied.length > 0 || skipped.length > 0) {
-      details.push({ project, copied, skipped });
+      details.push({ project, copied, skipped, conflicts });
     }
   }
 
@@ -178,6 +240,7 @@ function summarize(mode: ArchiveMode, archivePath: string, details: ArchiveProje
     projects: details.length,
     copied: details.reduce((sum, d) => sum + d.copied.length, 0),
     skipped: details.reduce((sum, d) => sum + d.skipped.length, 0),
+    conflicts: details.reduce((sum, d) => sum + d.conflicts.length, 0),
     details,
   };
 }
@@ -356,6 +419,9 @@ function formatSummary(result: ArchiveResult): string {
   if (result.skipped > 0) {
     const reason = result.mode === 'backup' ? 'already up to date' : 'already present locally';
     lines.push(`Skipped ${result.skipped} (${reason}).`);
+  }
+  if (result.conflicts > 0) {
+    lines.push(`Preserved ${result.conflicts} divergent local session(s) under ${path.join(result.archivePath, '.conflicts')}.`);
   }
   for (const detail of result.details) {
     if (detail.copied.length > 0) {
