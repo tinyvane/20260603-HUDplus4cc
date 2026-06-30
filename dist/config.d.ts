@@ -112,6 +112,7 @@ export interface HudConfig {
     };
     chatArchive: {
         path: string;
+        backupAll: boolean;
     };
     acpec: {
         enabled: boolean;

@@ -100,6 +100,7 @@ export const DEFAULT_CONFIG = {
     },
     chatArchive: {
         path: '',
+        backupAll: false,
     },
     acpec: {
         enabled: false,
@@ -547,6 +548,9 @@ export function mergeConfig(userConfig) {
     };
     const chatArchive = {
         path: validateOptionalPath(migrated.chatArchive?.path),
+        backupAll: typeof migrated.chatArchive?.backupAll === 'boolean'
+            ? migrated.chatArchive.backupAll
+            : DEFAULT_CONFIG.chatArchive.backupAll,
     };
     const acpec = {
         enabled: typeof migrated.acpec?.enabled === 'boolean'

@@ -201,6 +201,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showSubmodulePush` | boolean | false | 当仓库跟踪嵌套 git 仓库（gitlink）但 `push.recurseSubmodules` 不是 `on-demand` 时发出提醒；仓库没有 gitlink 时隐藏 |
 | `display.showVersion` | boolean | true | 在 HUD 底部右对齐显示插件版本号；当本地 marketplace 克隆中有更新版本时追加升级提示（如 `claude-hud v0.3.0 (v0.4.0 有可选更新)`）。完全离线检测——升级执行 `/plugin update claude-hud` |
 | `chatArchive.path` | string | `""` | `/claude-hud:backup-chats` 与 `/claude-hud:recover-chats` 使用的归档目录 |
+| `chatArchive.backupAll` | boolean | false | 为 true 时，`/claude-hud:backup-chats` 默认备份**全部**项目而非仅当前项目。可用 `--all` / `--no-all` 临时覆盖 |
 | `acpec.enabled` | boolean | false | 启用 ACPEC——对话结束时自动提交并推送已跟踪的更改。通过 `/claude-hud:acpec on\|off\|status` 管理 |
 | `acpec.commitPrefix` | string | `chore(acpec): auto-sync` | ACPEC 自动提交的提交信息前缀 |
 | `acpec.protectedBranches` | string[] | `[]` | ACPEC 永不提交的分支，如 `["main", "master"]` |

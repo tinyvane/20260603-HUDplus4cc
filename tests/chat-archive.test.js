@@ -10,6 +10,7 @@ import {
   formatComparison,
   parseArchiveArgs,
   mainArchive,
+  readBackupAllDefault,
 } from '../dist/chat-archive.js';
 import { encodeProjectDir } from '../dist/chat-stats.js';
 
@@ -60,6 +61,13 @@ test('parseArchiveArgs supports --path=value syntax', () => {
   assert.equal(p.mode, 'recover');
   assert.equal(p.archivePath, '/c/d');
   assert.equal(p.cwd, '/proj');
+});
+
+test('parseArchiveArgs leaves all unspecified (null) and supports --no-all', () => {
+  const unset = parseArchiveArgs(['node', 'x', 'backup', '--path', '/a']);
+  assert.equal(unset.all, null);
+  const forced = parseArchiveArgs(['node', 'x', 'backup', '--path', '/a', '--no-all']);
+  assert.equal(forced.all, false);
 });
 
 // --- backup -----------------------------------------------------------------
@@ -191,6 +199,77 @@ test('backupChats --all backs up every project', async () => {
     assert.equal(result.projects, 2);
     assert.equal(result.copied, 3);
   } finally {
+    await teardown(env);
+  }
+});
+
+// --- backupAll default ------------------------------------------------------
+
+async function writeHudConfig(home, config) {
+  const dir = path.join(home, '.claude', 'plugins', 'claude-hud');
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'config.json'), JSON.stringify(config), 'utf8');
+}
+
+async function dirExists(dir) {
+  try {
+    await readdir(dir);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test('readBackupAllDefault reflects chatArchive.backupAll (and tolerates a missing/garbled config)', async () => {
+  const env = await setup();
+  try {
+    assert.equal(readBackupAllDefault(env.home), false); // no config yet
+    await writeHudConfig(env.home, { chatArchive: { path: '/x', backupAll: true } });
+    assert.equal(readBackupAllDefault(env.home), true);
+    await writeHudConfig(env.home, { chatArchive: { backupAll: false } });
+    assert.equal(readBackupAllDefault(env.home), false);
+  } finally {
+    await teardown(env);
+  }
+});
+
+test('mainArchive backup honors backupAll=true to cover every project', async () => {
+  const env = await setup();
+  const origWrite = process.stdout.write;
+  process.stdout.write = () => true; // silence CLI summary
+  try {
+    await seedProject(env.home, '/work/one', { 'a.jsonl': '1\n' });
+    await seedProject(env.home, '/work/two', { 'b.jsonl': '2\n' });
+    await writeHudConfig(env.home, { chatArchive: { backupAll: true } });
+
+    const code = mainArchive(['node', 'x', 'backup', '--path', env.archive], env.home);
+    assert.equal(code, 0);
+    assert.ok(await dirExists(path.join(env.archive, encodeProjectDir('/work/one'))));
+    assert.ok(await dirExists(path.join(env.archive, encodeProjectDir('/work/two'))));
+  } finally {
+    process.stdout.write = origWrite;
+    await teardown(env);
+  }
+});
+
+test('mainArchive backup --no-all overrides backupAll=true (current project only)', async () => {
+  const env = await setup();
+  const origWrite = process.stdout.write;
+  process.stdout.write = () => true;
+  try {
+    await seedProject(env.home, '/work/one', { 'a.jsonl': '1\n' });
+    await seedProject(env.home, '/work/two', { 'b.jsonl': '2\n' });
+    await writeHudConfig(env.home, { chatArchive: { backupAll: true } });
+
+    const code = mainArchive(
+      ['node', 'x', 'backup', '--path', env.archive, '--no-all', '--cwd', '/work/one'],
+      env.home,
+    );
+    assert.equal(code, 0);
+    assert.ok(await dirExists(path.join(env.archive, encodeProjectDir('/work/one'))));
+    assert.equal(await dirExists(path.join(env.archive, encodeProjectDir('/work/two'))), false);
+  } finally {
+    process.stdout.write = origWrite;
     await teardown(env);
   }
 });

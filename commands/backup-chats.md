@@ -81,11 +81,27 @@ copied by this backup; rows marked **"lost locally"** (right-only) exist only in
 the archive and can be restored with `/claude-hud:recover-chats`. Proceed to the
 backup.
 
+## Step 2.7: Resolve the backup scope
+
+Read `chatArchive.backupAll` from `{CONFIG_PATH}` (it defaults to `false`).
+
+- **`backupAll` is `false` (default)** — the CLI backs up **only the current
+  project**. The before/after table in Step 2.5 already reflects this.
+- **`backupAll` is `true`** — the CLI backs up **every project** automatically,
+  with no flag needed.
+
+If the user asks to "back up all projects by default" / "永久保存所有项目对话",
+set `chatArchive.backupAll` to `true`: read the existing config JSON (or `{}`),
+set the key, and write it back to `{CONFIG_PATH}` with a real JSON serializer,
+preserving all existing keys (including `chatArchive.path`). After that, every
+`/claude-hud:backup-chats` run covers all projects until they turn it off.
+
 ## Step 3: Run the backup
 
-Run the archive CLI. By default it backs up **only the current project** (its
-cwd is your current working directory). Add `--all` only if the user asked to
-back up every project.
+Run the archive CLI. The scope follows `chatArchive.backupAll` from Step 2.7
+(current project by default, or every project when enabled). For a **one-off
+override** that ignores the saved default, pass `--all` (force every project) or
+`--no-all` (force current project only).
 
 **macOS / Linux / Git Bash:**
 ```bash
@@ -97,7 +113,8 @@ back up every project.
 & "{NODE}" (Join-Path "{PLUGIN_DIR}" "dist\chat-archive.js") backup --path "{ARCHIVE_PATH}"
 ```
 
-To back up every project, append `--all`.
+One-off scope overrides: append `--all` to back up every project this run, or
+`--no-all` to back up only the current project this run.
 
 ## Step 4: Report
 

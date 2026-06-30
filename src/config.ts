@@ -154,6 +154,7 @@ export interface HudConfig {
   };
   chatArchive: {
     path: string;
+    backupAll: boolean;
   };
   acpec: {
     enabled: boolean;
@@ -239,6 +240,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   },
   chatArchive: {
     path: '',
+    backupAll: false,
   },
   acpec: {
     enabled: false,
@@ -747,6 +749,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
 
   const chatArchive = {
     path: validateOptionalPath(migrated.chatArchive?.path),
+    backupAll: typeof migrated.chatArchive?.backupAll === 'boolean'
+      ? migrated.chatArchive.backupAll
+      : DEFAULT_CONFIG.chatArchive.backupAll,
   };
 
   const acpec = {

@@ -60,14 +60,22 @@ export declare function compareChats(opts: {
     homeDir?: string;
 }): ChatComparison;
 export declare function formatComparison(cmp: ChatComparison): string;
+/**
+ * Read the persisted "back up every project by default" preference from the
+ * HUD config (`chatArchive.backupAll`). Kept deliberately lean — it parses the
+ * one boolean it needs and treats any read/parse error as "not enabled" so a
+ * malformed config never blocks a backup.
+ */
+export declare function readBackupAllDefault(homeDir?: string): boolean;
 interface ParsedArgs {
     mode: ArchiveMode | 'compare' | null;
     archivePath: string;
     cwd: string;
-    all: boolean;
+    /** null = not specified on the CLI (fall back to the config default). */
+    all: boolean | null;
     json: boolean;
 }
 export declare function parseArchiveArgs(argv: string[]): ParsedArgs;
-export declare function mainArchive(argv?: string[]): number;
+export declare function mainArchive(argv?: string[], homeDir?: string): number;
 export {};
 //# sourceMappingURL=chat-archive.d.ts.map

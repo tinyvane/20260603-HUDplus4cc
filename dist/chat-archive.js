@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
-import { getClaudeConfigDir, getHomeDir } from './claude-config-dir.js';
+import { getClaudeConfigDir, getHomeDir, getHudPluginDir } from './claude-config-dir.js';
 import { encodeProjectDir, resolveChatDir } from './chat-stats.js';
 function listJsonl(dir) {
     try {
@@ -303,13 +303,29 @@ export function formatComparison(cmp) {
         lines.push(`⚠ ${cmp.onlyArchive} session(s) missing locally (recoverable)`);
     return lines.join('\n');
 }
+/**
+ * Read the persisted "back up every project by default" preference from the
+ * HUD config (`chatArchive.backupAll`). Kept deliberately lean — it parses the
+ * one boolean it needs and treats any read/parse error as "not enabled" so a
+ * malformed config never blocks a backup.
+ */
+export function readBackupAllDefault(homeDir = getHomeDir()) {
+    try {
+        const configPath = path.join(getHudPluginDir(homeDir), 'config.json');
+        const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        return parsed?.chatArchive?.backupAll === true;
+    }
+    catch {
+        return false;
+    }
+}
 export function parseArchiveArgs(argv) {
     const args = argv.slice(2);
     const parsed = {
         mode: null,
         archivePath: '',
         cwd: process.cwd(),
-        all: false,
+        all: null,
         json: false,
     };
     for (let i = 0; i < args.length; i += 1) {
@@ -319,6 +335,9 @@ export function parseArchiveArgs(argv) {
         }
         else if (arg === '--all') {
             parsed.all = true;
+        }
+        else if (arg === '--no-all') {
+            parsed.all = false;
         }
         else if (arg === '--json') {
             parsed.json = true;
@@ -357,10 +376,10 @@ function formatSummary(result) {
     }
     return lines.join('\n');
 }
-export function mainArchive(argv = process.argv) {
+export function mainArchive(argv = process.argv, homeDir = getHomeDir()) {
     const parsed = parseArchiveArgs(argv);
     if (!parsed.mode) {
-        process.stderr.write('Usage: chat-archive <backup|recover|compare> --path <dir> [--all] [--cwd <dir>] [--json]\n');
+        process.stderr.write('Usage: chat-archive <backup|recover|compare> --path <dir> [--all|--no-all] [--cwd <dir>] [--json]\n');
         return 2;
     }
     if (!parsed.archivePath || !path.isAbsolute(parsed.archivePath)) {
@@ -368,16 +387,21 @@ export function mainArchive(argv = process.argv) {
         return 2;
     }
     if (parsed.mode === 'compare') {
-        const comparison = compareChats({ archivePath: parsed.archivePath, cwd: parsed.cwd });
+        const comparison = compareChats({ archivePath: parsed.archivePath, cwd: parsed.cwd, homeDir });
         process.stdout.write((parsed.json ? JSON.stringify(comparison) : formatComparison(comparison)) + '\n');
         return 0;
     }
+    // An explicit --all/--no-all wins; otherwise backup honors the persisted
+    // `chatArchive.backupAll` default. Recovery stays opt-in (explicit --all only).
+    const all = parsed.all !== null
+        ? parsed.all
+        : parsed.mode === 'backup' && readBackupAllDefault(homeDir);
     const result = runArchive({
         mode: parsed.mode,
         archivePath: parsed.archivePath,
         cwd: parsed.cwd,
-        all: parsed.all,
-    });
+        all,
+    }, homeDir);
     process.stdout.write(parsed.json ? JSON.stringify(result) : formatSummary(result));
     process.stdout.write('\n');
     return 0;

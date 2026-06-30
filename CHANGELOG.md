@@ -2,6 +2,11 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [0.5.0] - 2026-07-01
+
+### Added
+- `chatArchive.backupAll` config (default `false`). When enabled, `/claude-hud:backup-chats` backs up **every** project by default instead of just the current one — the archive CLI honors it directly, so it applies even to direct/automated invocations. Per-run overrides: `--all` forces every project, `--no-all` forces the current project only.
+
 ## [0.4.2] - 2026-06-20
 
 ### Changed
